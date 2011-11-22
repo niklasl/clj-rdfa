@@ -1,0 +1,30 @@
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+      xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+      xmlns:owl="http://www.w3.org/2002/07/owl#"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+      prefix="skos: http://www.w3.org/2008/05/skos#
+              foaf: http://xmlns.com/foaf/0.1/
+              bibo: http://purl.org/ontology/bibo/ "
+      lang="en">
+  <head>
+    <base href="http://example.org/2007/rdfa_example_document" />
+    <title>Site: The Document</title>
+  </head>
+  <body lang="en-GB" vocab="http://purl.org/dc/terms/">
+    <h1 property="dct:title">The Document</h1>
+    <p>Created at
+      <span property="dct:created"
+            content="2011-11-05T00:07:31+0100"
+            datatype="xsd:dateTime">00:07, on the fifth of november, 2011</span>.
+    </p>
+
+    <div id="part_1" rel="dct:hasPart" resource="#part_1">
+      <h2 property="rdfs:label">Part One</h2>
+      <p>...</p>
+    </div>
+    <footer>
+      <a rel="license" href="/cc-by">CC-BY</a>
+    </footer>
+  </body>
+</html>
