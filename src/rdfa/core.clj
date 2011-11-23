@@ -22,10 +22,14 @@
     (cond
       (= t IRI) (str "<" (:iri term) ">")
       (= t Literal) (str "\"" (:value term) "\""
-                         (if (= (type (:tag term)) IRI)
-                           (str "^^" (repr-term (:tag term)))
-                           (str "@" (:tag term))))
+                         (let [tag (:tag term)]
+                           (cond
+                             (= (type tag) IRI) (str "^^" (repr-term tag))
+                             (not-empty tag) (str "@" tag))))
       (= t BNode) (str "_:" (:id term)))))
+
+(defn repr-triple [[s p o]]
+  (str (repr-term s) " " (repr-term p) " " (repr-term o) " ."))
 
 
 (defn init-env
@@ -63,38 +67,51 @@
      :datatype datatype
      :recurse (not as-literal)}))
 
+(defn update-env [env data]
+  (let [env (if-let [lang (data :lang)]
+              (assoc env :lang lang)
+              env)
+        env (if-let [vocab (data :vocab)]
+              (assoc env :vocab vocab)
+              env)]
+    env))
+
+; TODO: expand-curie...
+
 (defn get-subject [data env]
-  (or (if-let [it (data :about)] (IRI. it)) (env :parent-object)))
+  (or (if-let [it (or (data :about)
+                      (if (not (or (data :rel) (data :rev) (data :property)))
+                        (data :resource)))]
+        (IRI. it))
+      (env :parent-object)))
 
 (defn get-predicates [data env]
   (if-let [repr (or (data :property) (data :rel) (data :rev))]
     (map #(IRI. %1) (s/split (s/trim repr) #"\s+"))))
 
-(defn get-object [data env]
+(defn get-object [data curr-lang]
   (or (if-let [it (data :resource)] (IRI. it))
       (if (data :content)
-        (Literal. (data :content) (or (if-let [it (data :datatype)] (IRI. it))
-                                      (or (data :lang) (env :lang)))))))
+        (Literal. (data :content) (or (if-let [dt (data :datatype)] (IRI. dt))
+                                      (or (data :lang) curr-lang))))))
 
 (defn next-state [el env]
   ; {:source (.getNodeName el) :line-nr nil}
   (let [data (get-data el)
-        env (if (data :lang)
-              (assoc env :lang (data :lang))
-              env)
+        env (update-env env data)
         s (get-subject data env)
         ps (get-predicates data env)
-        o (get-object data env)
+        o (get-object data (env :lang))
+        ; TODO: types (data :typeof) ...
         env (if (and o (not= (type o) Literal))
               (assoc env :parent-object o)
               (assoc env :incomplete ps))]
     [(if (and (not-empty ps) o) (for [p ps] [s p o]))
-     env ; TODO: sub-env?
+     env
      (data :recurse)]))
 
 (defn visit-element [el env]
   (let [[triples next-env recurse] (next-state el env)
-        ; TODO: return and check recurse true/false from next-state
         child-elements (if recurse (filter #(= (.getNodeType %1) Node/ELEMENT_NODE)
                                (node-list (.getChildNodes el))))]
     (lazy-seq (let [result-triples
@@ -106,12 +123,9 @@
         env (init-env (IRI. source))]
     (visit-element (.getDocumentElement doc) env)))
 
-(defn triple-repr [[s p o]]
-  (str (repr-term s) " " (repr-term p) " " (repr-term o) " ."))
-
 
 (defn -main [& args]
   (let [triples (extract-rdf "resources/test.html")]
     (doseq [triple triples]
-      (-> triple triple-repr println))))
+      (-> triple repr-triple println))))
 
