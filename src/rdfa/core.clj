@@ -1,4 +1,5 @@
 (ns rdfa.core
+  (:require [clojure.string :as s])
   (:import [javax.xml.parsers DocumentBuilderFactory]
            [org.w3c.dom Node]))
 
@@ -15,6 +16,16 @@
 (defrecord BNode [id])
 (defrecord IRI [iri])
 (defrecord Literal [value tag])
+
+(defn repr-term [term]
+  (let [t (type term)]
+    (cond
+      (= t IRI) (str "<" (:iri term) ">")
+      (= t Literal) (str "\"" (:value term) "\""
+                         (if (= (type (:tag term)) IRI)
+                           (str "^^" (repr-term (:tag term)))
+                           (str "@" (:tag term))))
+      (= t BNode) (str "_:" (:id term)))))
 
 
 (defn init-env
@@ -34,33 +45,35 @@
   (let [attr #(not-empty (.getAttribute el %1))
         rel (attr "rel")
         rev (attr "rev")
+        property (attr "property")
         resource (or (attr "resource") (attr "href") (attr "src"))
         typeof (attr "typeof")
         datatype (attr "datatype")
-        as-literal? (not (or rel rev typeof resource))]
+        as-literal (and property (not (or typeof resource)))]
     {:vocab (attr "vocab")
      :prefix (attr "prefix")
      :about (attr "about")
-     :property (attr "property")
+     :property property
      :rel rel :rev rev :resource resource :typeof typeof
      :content (or (attr "content")
-                  (if as-literal?
+                  (if as-literal
                     "TEXT"; # TODO: el text / xml
                     ))
      :lang (or (attr "lang") (attr "xml:lang"))
      :datatype datatype
-     :recurse (not as-literal?)}))
+     :recurse (not as-literal)}))
 
 (defn get-subject [data env]
-  (or (#(if %1 (IRI. %1)) (data :about)) (env :parent-object)))
+  (or (if-let [it (data :about)] (IRI. it)) (env :parent-object)))
 
 (defn get-predicates [data env]
-  (#(if %1 (IRI. %1)) (or (data :property) (data :rel) (data :rev))))
+  (if-let [repr (or (data :property) (data :rel) (data :rev))]
+    (map #(IRI. %1) (s/split (s/trim repr) #"\s+"))))
 
-(defn get-objects [data env]
-  (or (#(if %1 (IRI. %1)) (data :resource))
+(defn get-object [data env]
+  (or (if-let [it (data :resource)] (IRI. it))
       (if (data :content)
-        (Literal. (data :content) (or (#(if %1 (IRI. %1)) (data :datatype))
+        (Literal. (data :content) (or (if-let [it (data :datatype)] (IRI. it))
                                       (or (data :lang) (env :lang)))))))
 
 (defn next-state [el env]
@@ -70,42 +83,31 @@
               (assoc env :lang (data :lang))
               env)
         s (get-subject data env)
-        p (get-predicates data env)
-        o (get-objects data env)
+        ps (get-predicates data env)
+        o (get-object data env)
         env (if (and o (not= (type o) Literal))
               (assoc env :parent-object o)
-              (assoc env :incomplete p))]
-    ; TODO: sub-env and multiple triples (*p *o)
-    [env
-     (if (and p o)
-       [s p o])]))
+              (assoc env :incomplete ps))]
+    [(if (and (not-empty ps) o) (for [p ps] [s p o]))
+     env ; TODO: sub-env?
+     (data :recurse)]))
+
+(defn visit-element [el env]
+  (let [[triples next-env recurse] (next-state el env)
+        ; TODO: return and check recurse true/false from next-state
+        child-elements (if recurse (filter #(= (.getNodeType %1) Node/ELEMENT_NODE)
+                               (node-list (.getChildNodes el))))]
+    (lazy-seq (let [result-triples
+                    (mapcat #(visit-element %1 next-env) child-elements)]
+                (concat triples result-triples)))))
 
 (defn extract-rdf [source]
   (let [doc (dom-parse source)
         env (init-env (IRI. source))]
     (visit-element (.getDocumentElement doc) env)))
 
-(defn visit-element [el env]
-  (let [[next-env triple] (next-state el env)
-        ; TODO: return and check recurse true/false from next-state
-        child-elements (filter #(= (.getNodeType %1) Node/ELEMENT_NODE)
-                               (node-list (.getChildNodes el)))]
-    (lazy-seq (let [triples
-                    (mapcat #(visit-element %1 next-env) child-elements)]
-                (if triple (cons triple triples) triples)))))
-
-(defn term-repr [term]
-  (let [t (type term)]
-    (cond
-      (= t IRI) (str "<" (:iri term) ">")
-      (= t Literal) (str "\"" (:value term) "\""
-                         (if (= (type (:tag term)) IRI)
-                           (str "^^" (term-repr (:tag term)))
-                           (str "@" (:tag term))))
-      (= t BNode) (str "_:" (:id term)))))
-
 (defn triple-repr [[s p o]]
-  (str (term-repr s) " " (term-repr p) " " (term-repr o) " ."))
+  (str (repr-term s) " " (repr-term p) " " (repr-term o) " ."))
 
 
 (defn -main [& args]
