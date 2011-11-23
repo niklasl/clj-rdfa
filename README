@@ -1,13 +1,13 @@
 # rdfa
 
-FIXME: write description
+Extract triples from RDFa 1.1 XHTML and HTML documents using Clojure.
 
 ## Usage
 
-FIXME: write
+TBD...
 
 ## License
 
-Copyright (C) 2011 FIXME
+Copyright (C) 2011 Niklas Lindström
 
 Distributed under the Eclipse Public License, the same as Clojure.
