@@ -13,6 +13,11 @@
     (if (= index -1) nodes
       (recur (dec index) (cons (.item nl index) nodes)))))
 
+(defn get-content [el as-xml]
+  ; TODO: recursively; support as-xml
+  (apply str (map #(.getNodeValue %1)
+                (filter #(= (.getNodeType %1) Node/TEXT_NODE)
+                        (node-list (.getChildNodes el))))))
 
 (defrecord BNode [id])
 (defrecord IRI [iri])
@@ -20,6 +25,7 @@
 
 (def rdf-ns "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
 (def rdf-type (IRI. (str rdf-ns "type")))
+(def rdf-XMLLiteral (IRI. (str rdf-ns "XMLLiteral")))
 
 (defn repr-term [term]
   (let [t (type term)]
@@ -82,11 +88,7 @@
      :rel rel :rev rev :resource resource :typeof typeof
      :content (or (attr "content")
                   (if as-literal
-                    (apply str (map #(.getNodeValue %1)
-                                 (filter #(= (.getNodeType %1) Node/TEXT_NODE)
-                                         (node-list (.getChildNodes el)))))
-                    ; # TODO: or XMLLiteral
-                    ))
+                    (get-content el (= datatype (:iri rdf-XMLLiteral)))))
      :lang (or (attr "lang") (attr "xml:lang"))
      :datatype datatype
      :recurse (not as-literal)}))
@@ -95,11 +97,11 @@
   (let [env (if-let [lang (data :lang)]
               (assoc env :lang lang)
               env)
-        env (if-let [prefix (data :prefix)]
-              ; TODO: update :uri-map!
-              (assoc env :uri-map
-                     (apply hash-map
-                            (string/split (string/trim prefix) #":?\s+")))
+        env (if-let [prefix (not-empty (string/trim (or (data :prefix) "")))]
+              (update-in env [:uri-map]
+                         #(merge %1
+                                 (apply hash-map
+                                        (string/split prefix #":?\s+"))))
               env)
         env (if-let [vocab (data :vocab)]
               (assoc env :vocab vocab)
@@ -116,7 +118,8 @@
   (map #(to-term env %1) (to-tokens expr)))
 
 (defn get-subject [data env]
-  (or (if-let [it (or (data :about); TODO: ok if empty but not nil
+  ; TODO: (if (env :incomplete) and new predicate without new subject) BNode
+  (or (if-let [it (or (data :about)
                       (if (not (or (data :rel) (data :rev) (data :property)))
                         (data :resource)))]
         (IRI. (resolve-iri it (env :base)))
@@ -143,10 +146,13 @@
         o (get-object data env)
         types (if-let [expr (data :typeof)] (to-terms env expr))
         type-triples (for [t types] [s rdf-type t])
-        env (if (and o (not= (type o) Literal))
-              (assoc env :parent-object o)
-              (assoc env :incomplete ps))
-        triples (concat type-triples (if o (for [p ps] [s p o])))]
+        triples (concat type-triples
+                        (for [rel (env :incomplete)] [(env :parent-object) rel s])
+                        (if o (for [p ps] [s p o])))
+        env (cond
+              (and o (not= (type o) Literal)) (assoc env :parent-object o)
+              (data :about) (assoc env :parent-object s)
+              :else (assoc env :incomplete ps))]
     [triples env (data :recurse)]))
 
 (defn visit-element [el env]
