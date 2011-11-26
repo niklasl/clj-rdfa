@@ -121,7 +121,8 @@
   (string/split (string/trim expr) #"\s+"))
 
 (defn to-terms [env expr]
-  (map #(to-term env %1) (to-tokens expr)))
+  (if (not-empty expr)
+    (map #(to-term env %1) (to-tokens expr))))
 
 (defn get-subject [data env]
   (let [new-pred (or (data :rel) (data :rev) (data :property))]
@@ -133,10 +134,6 @@
             (next-bnode)))
         (if (and (not-empty (env :incomplete)) (data :property)) (next-bnode))
         (env :parent-object))))
-
-(defn get-predicates [data env]
-  (if-let [expr (or (data :property) (data :rel) (data :rev))]
-    (to-terms env expr)))
 
 (defn get-object [data env]
   (or (if-let [it (data :resource)] (IRI. (resolve-iri it (env :base))))
@@ -150,7 +147,10 @@
         env (update-env env data)
         parent-o (env :parent-object)
         s (get-subject data env)
-        ps (get-predicates data env)
+        props (to-terms env (data :property))
+        rels (to-terms env (data :rel))
+        revs (to-terms env (data :rev))
+        ps (concat props rels); TODO: separately if given both (link and content)
         o (get-object data env)
         types (if-let [expr (data :typeof)] (to-terms env expr))
         type-triples (for [t types] [s rdf-type t])
@@ -158,9 +158,10 @@
                             (for [rel (env :incomplete)]
                               [parent-o rel s]))
         triples (concat type-triples
-                        ; TODO: support rev
                         completed-triples
-                        (if o (for [p ps] [s p o])))
+                        (if o (lazy-cat
+                                (for [p ps] [s p o])
+                                (for [p revs] [o p s]))))
         ; manage next :incomplete
         env (if s (assoc env :incomplete []) env)
         ; determine :parent-object or :incomplete

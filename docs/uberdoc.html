@@ -2526,34 +2526,149 @@ $(document).ready(function() {
     ul.css('margin-top', '0px')
 
 })
-</script><title>rdfa -- Marginalia</title></head><body><table><tr><td class="docs"><div class="header"><h1 class="project-name">rdfa</h1><h2 class="project-version">1.0.0-SNAPSHOT</h2><br /><p>FIXME: write description</p>
-</div><div class="dependencies"><h3>dependencies</h3><table><tr><td class="dep-name">org.clojure/clojure</td><td class="dotted"><hr /></td><td class="dep-version">1.2.1</td></tr></table></div><div class="dependencies"><h3>dev dependencies</h3><table><tr><td class="dep-name">lein-marginalia</td><td class="dotted"><hr /></td><td class="dep-version">0.6.0</td></tr></table></div></td><td class="codes" style="text-align: center; vertical-align: middle;color: #666;padding-right:20px"><br /><br /><br />(this space intentionally left almost blank)</td></tr><tr><td class="docs"><div class="toc"><a name="toc"><h3>namespaces</h3></a><ul><li><a href="#rdfa.core">rdfa.core</a></li></ul></div></td><td class="codes">&nbsp;</td></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#rdfa.core" name="rdfa.core"><h1 class="project-name">rdfa.core</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs">
-</td><td class="codes" /><pre class="brush: clojure">(ns rdfa.core)</pre></tr><tr><td class="docs">
-</td><td class="codes" /><pre class="brush: clojure">(defn dom-parse [source]
-  source)</pre></tr><tr><td class="docs">
+</script><title>rdfa -- Marginalia</title></head><body><table><tr><td class="docs"><div class="header"><h1 class="project-name">rdfa</h1><h2 class="project-version">0.1.0-SNAPSHOT</h2><br /><p>FIXME: write description</p>
+</div><div class="dependencies"><h3>dependencies</h3><table><tr><td class="dep-name">org.clojure/clojure</td><td class="dotted"><hr /></td><td class="dep-version">1.2.1</td></tr><tr><td class="dep-name"></td><td class="dotted"><hr /></td><td class="dep-version"></td></tr></table></div><div class="dependencies"><h3>dev dependencies</h3><table><tr><td class="dep-name">lein-marginalia</td><td class="dotted"><hr /></td><td class="dep-version">0.6.0</td></tr></table></div></td><td class="codes" style="text-align: center; vertical-align: middle;color: #666;padding-right:20px"><br /><br /><br />(this space intentionally left almost blank)</td></tr><tr><td class="docs"><div class="toc"><a name="toc"><h3>namespaces</h3></a><ul><li><a href="#rdfa.core">rdfa.core</a></li></ul></div></td><td class="codes">&nbsp;</td></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#rdfa.core" name="rdfa.core"><h1 class="project-name">rdfa.core</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs">
+</td><td class="codes" /><pre class="brush: clojure">(ns rdfa.core
+  (:require [clojure.string :as string])
+  (:import [javax.xml.parsers DocumentBuilderFactory]
+           [org.w3c.dom Node]))</pre></tr><tr><td class="docs">
+</td><td class="codes" /><pre class="brush: clojure">(defn dom-parse [uri]
+  (.. (DocumentBuilderFactory/newInstance) (newDocumentBuilder) (parse uri)))</pre></tr><tr><td class="docs">
+</td><td class="codes" /><pre class="brush: clojure">(defn node-list [nl]
+  (loop [index (dec (.getLength nl)) nodes nil]
+    (if (= index -1) nodes
+      (recur (dec index) (cons (.item nl index) nodes)))))</pre></tr><tr><td class="docs">
+</td><td class="codes" /><pre class="brush: clojure">(defrecord BNode [id])
+(defrecord IRI [iri])
+(defrecord Literal [value tag])</pre></tr><tr><td class="docs">
+</td><td class="codes" /><pre class="brush: clojure">(def rdf-ns &quot;http://www.w3.org/1999/02/22-rdf-syntax-ns#&quot;)
+(def rdf-type (IRI. (str rdf-ns &quot;type&quot;)))</pre></tr><tr><td class="docs">
+</td><td class="codes" /><pre class="brush: clojure">(defn repr-term [term]
+  (let [t (type term)]
+    (cond
+      (= t IRI) (str &quot;&lt;&quot; (:iri term) &quot;&gt;&quot;)
+      (= t Literal) (str &quot;\ (:value term) &quot;\
+                         (let [tag (:tag term)]
+                           (cond
+                             (= (type tag) IRI) (str &quot;^^&quot; (repr-term tag))
+                             (not-empty tag) (str &quot;@&quot; tag))))
+      (= t BNode) (str &quot;_:&quot; (:id term)))))</pre></tr><tr><td class="docs">
+</td><td class="codes" /><pre class="brush: clojure">(defn repr-triple [[s p o]]
+  (str (repr-term s) &quot; &quot; (repr-term p) &quot; &quot; (repr-term o) &quot; .&quot;))</pre></tr><tr><td class="docs">
+</td><td class="codes" /><pre class="brush: clojure">(defn resolve-iri [ref base]
+  (if (not-empty ref)
+    (.. (java.net.URI. base) (resolve ref) (toString))
+    base))</pre></tr><tr><td class="docs">
+</td><td class="codes" /><pre class="brush: clojure">(defn expand-curie
+  ([repr env]
+   (expand-curie repr (env :uri-map) (env :term-map) (env :vocab)))
+  ([repr uri-map term-map vocab]
+   (if (str2/substring? &quot;:&quot; repr)
+    (let [[pfx term] (string/split repr #&quot;:&quot;)]
+      (if-let [vocab (uri-map pfx)]
+        (str vocab term)
+        repr))
+    (if-let [term (term-map repr)]
+      term
+      (str vocab repr)))))</pre></tr><tr><td class="docs">
+</td><td class="codes" /><pre class="brush: clojure">(defn init-env
+  ([base] (init-env base {}))
+  ([base uri-map] (init-env base uri-map {}))
+  ([base uri-map term-map]
+   {:base base
+    :parent-object (IRI. base)
+    :uri-map uri-map
+    :incomplete []
+    :lang nil
+    :term-map term-map
+    :vocab nil}))</pre></tr><tr><td class="docs">
+</td><td class="codes" /><pre class="brush: clojure">(defn get-data [el]
+  (let [attr #(if (.hasAttribute el %1) (.getAttribute el %1))
+        rel (attr &quot;rel&quot;)
+        rev (attr &quot;rev&quot;)
+        property (attr &quot;property&quot;)
+        resource (or (attr &quot;resource&quot;) (attr &quot;href&quot;) (attr &quot;src&quot;))
+        typeof (attr &quot;typeof&quot;)
+        datatype (attr &quot;datatype&quot;)
+        as-literal (and property (not (or typeof resource)))]
+    {:vocab (attr &quot;vocab&quot;)
+     :prefix (attr &quot;prefix&quot;)
+     :about (attr &quot;about&quot;)
+     :property property
+     :rel rel :rev rev :resource resource :typeof typeof
+     :content (or (attr &quot;content&quot;)
+                  (if as-literal
+                    &quot;TEXT&quot;; # TODO: el text / xml))
+     :lang (or (attr &quot;lang&quot;) (attr &quot;xml:lang&quot;))
+     :datatype datatype
+     :recurse (not as-literal)}))</pre></tr><tr><td class="docs">
+</td><td class="codes" /><pre class="brush: clojure">(defn update-env [env data]
+  (let [env (if-let [lang (data :lang)]
+              (assoc env :lang lang)
+              env)
+        env (if-let [prefix (data :prefix)]
+              ; TODO: update :uri-map!
+              (assoc env :uri-map
+                     (apply hash-map
+                            (string/split (string/trim prefix) #&quot;:?\s+&quot;)))
+              env)
+        env (if-let [vocab (data :vocab)]
+              (assoc env :vocab vocab)
+              env)]
+    env))</pre></tr><tr><td class="docs">
+</td><td class="codes" /><pre class="brush: clojure">(defn to-term [env repr]
+  (IRI. (expand-curie repr env)))</pre></tr><tr><td class="docs">
+</td><td class="codes" /><pre class="brush: clojure">(defn to-tokens [expr]
+  (string/split (string/trim expr) #&quot;\s+&quot;))</pre></tr><tr><td class="docs">
+</td><td class="codes" /><pre class="brush: clojure">(defn to-terms [env expr]
+  (map #(to-term env %1) (to-tokens expr)))</pre></tr><tr><td class="docs">
+</td><td class="codes" /><pre class="brush: clojure">(defn get-subject [data env]
+  (or (if-let [it (or (data :about); TODO: ok if empty but not nil
+                      (if (not (or (data :rel) (data :rev) (data :property)))
+                        (data :resource)))]
+        (IRI. (resolve-iri it (env :base)))
+        (if (data :typeof)
+          (BNode. 0))) ; TODO: incr! bnode-counter
+      (env :parent-object)))</pre></tr><tr><td class="docs">
+</td><td class="codes" /><pre class="brush: clojure">(defn get-predicates [data env]
+  (if-let [expr (or (data :property) (data :rel) (data :rev))]
+    (to-terms env expr)))</pre></tr><tr><td class="docs">
+</td><td class="codes" /><pre class="brush: clojure">(defn get-object [data env]
+  (or (if-let [it (data :resource)] (IRI. (resolve-iri it (env :base))))
+      (if (data :content)
+        (Literal. (data :content) (or (if-let [dt (data :datatype)] (to-term env dt))
+                                      (or (data :lang) (env :lang)))))))</pre></tr><tr><td class="docs">
+</td><td class="codes" /><pre class="brush: clojure">(defn next-state [el env]
+  ; {:source (.getNodeName el) :line-nr nil}
+  (let [data (get-data el)
+        env (update-env env data)
+        s (get-subject data env)
+        ps (get-predicates data env)
+        o (get-object data env)
+        types (if-let [expr (data :typeof)] (to-terms env expr))
+        type-triples (for [t types] [s rdf-type t])
+        env (if (and o (not= (type o) Literal))
+              (assoc env :parent-object o)
+              (assoc env :incomplete ps))
+        triples (concat type-triples (if o (for [p ps] [s p o])))]
+    [triples env (data :recurse)]))</pre></tr><tr><td class="docs">
+</td><td class="codes" /><pre class="brush: clojure">(defn visit-element [el env]
+  (let [[triples next-env recurse] (next-state el env)
+        child-elements (if recurse (filter #(= (.getNodeType %1) Node/ELEMENT_NODE)
+                               (node-list (.getChildNodes el))))]
+    (lazy-seq (concat triples
+                      (mapcat #(visit-element %1 next-env) child-elements)))))</pre></tr><tr><td class="docs">
 </td><td class="codes" /><pre class="brush: clojure">(defn extract-rdf [source]
-  ; TODO: return lazy stream of triples instead
   (let [doc (dom-parse source)
-        env nil
-        triples []]
-        triples))</pre></tr><tr><td class="docs"><p>Maybe document like this?
-So this will be in the marginalia?
-Perhaps?</p>
-</td><td class="codes" /></tr><tr><td class="docs"><p>Visits elements and build state for recursive visits.
-  Emits a stream of triples.</p>
-</td><td class="codes" /><pre class="brush: clojure">(defn visit-element
-  [el env]
-  nil)</pre></tr><tr><td class="docs"><p>Or maybe document like this?
-So this will be in the marginalia?
-Perhaps?
-Or maybe document like this?
-So this will be in the marginalia?
-Perhaps?
-Or maybe document like this?
-So this will be in the marginalia?
-Perhaps?</p>
-</td><td class="codes" /></tr><tr><td class="docs">
+        docElem (.getDocumentElement doc)
+        baseElems (.getElementsByTagName docElem &quot;base&quot;)
+        base (or (if (&gt; (.getLength baseElems) 0)
+               (not-empty (.getAttribute (.item baseElems 0) &quot;href&quot;)))
+               (.. (java.io.File. source) (toURI) (toString)))
+        env (init-env base)]
+    (visit-element docElem env)))</pre></tr><tr><td class="docs">
 </td><td class="codes" /><pre class="brush: clojure">(defn -main [&amp; args]
-  (let [out (extract-rdf &quot;resources/test.html&quot;)]
-    (println out)))</pre></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr></table><div class="footer">Generated by <a href="https://github.com/fogus/marginalia">Marginalia</a>.&nbsp;&nbsp;Syntax highlighting provided by Alex Gorbatchev's <a href="http://alexgorbatchev.com/SyntaxHighlighter/">SyntaxHighlighter</a><div id="floating-toc"><ul><li class="floating-toc-li" id="floating-toc_rdfa.core">rdfa.core</li></ul></div></div><script type="text/javascript">SyntaxHighlighter.defaults['gutter'] = false;
+  (let [triples (extract-rdf &quot;resources/test.html&quot;)]
+    (doseq [triple triples]
+      (-&gt; triple repr-triple println))))</pre></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr></table><div class="footer">Generated by <a href="https://github.com/fogus/marginalia">Marginalia</a>.&nbsp;&nbsp;Syntax highlighting provided by Alex Gorbatchev's <a href="http://alexgorbatchev.com/SyntaxHighlighter/">SyntaxHighlighter</a><div id="floating-toc"><ul><li class="floating-toc-li" id="floating-toc_rdfa.core">rdfa.core</li></ul></div></div><script type="text/javascript">SyntaxHighlighter.defaults['gutter'] = false;
        SyntaxHighlighter.all()</script></body></html>
