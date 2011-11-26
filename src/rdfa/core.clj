@@ -1,6 +1,6 @@
 (ns rdfa.core
+  (:gen-class)
   (:require [clojure.string :as string])
-  (:use [clojure.contrib.string :only (substring?)])
   (:import [javax.xml.parsers DocumentBuilderFactory]
            [org.w3c.dom Node]))
 
@@ -29,10 +29,6 @@
   (swap! bnode-counter inc)
   (BNode. @bnode-counter))
 
-(def rdf-ns "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
-(def rdf-type (IRI. (str rdf-ns "type")))
-(def rdf-XMLLiteral (IRI. (str rdf-ns "XMLLiteral")))
-
 (defn repr-term [term]
   (let [t (type term)]
     (cond
@@ -47,6 +43,10 @@
 (defn repr-triple [[s p o]]
   (str (repr-term s) " " (repr-term p) " " (repr-term o) " ."))
 
+(def rdf-ns "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
+(def rdf-type (IRI. (str rdf-ns "type")))
+(def rdf-XMLLiteral (IRI. (str rdf-ns "XMLLiteral")))
+
 
 (defn resolve-iri [ref base]
   (if (not-empty ref)
@@ -57,7 +57,7 @@
   ([repr env]
    (expand-curie repr (env :uri-map) (env :term-map) (env :vocab)))
   ([repr uri-map term-map vocab]
-   (if (substring? ":" repr)
+   (if (> (.indexOf repr ":") -1)
     (let [[pfx term] (string/split repr #":")]
       (if-let [vocab (uri-map pfx)]
         (str vocab term)
@@ -193,6 +193,6 @@
 (defn -main [& args]
   (doseq [path args]
     (let [triples (extract-rdf path)]
-    (doseq [triple triples]
-      (-> triple repr-triple println)))))
+      (doseq [triple triples]
+        (-> triple repr-triple println)))))
 
