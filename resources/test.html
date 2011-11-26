@@ -4,9 +4,10 @@
             skos: http://www.w3.org/2008/05/skos#
             dct: http://purl.org/dc/terms/
             foaf: http://xmlns.com/foaf/0.1/
-            bibo: http://purl.org/ontology/bibo/ "
+            "
       lang="en">
-  <head about="" typeof="foaf:Document bibo:Document">
+  <head prefix="bibo: http://purl.org/ontology/bibo/"
+        about="" typeof="foaf:Document bibo:Document">
     <base href="http://example.org/2011/example" />
     <title>Site: The Document</title>
     <meta property="dct:subject" content="keywords" />
@@ -25,6 +26,12 @@
       <a rel="isPartOf" href="">top</a>
     </div>
     <footer>
+      <p rel="creator">
+        Created by
+        <span about="/person/one#self">
+          <span property="foaf:name">One</span>
+        </span>.
+      </p>
       <a rel="license" href="/cc-by">CC-BY</a>
     </footer>
   </body>
