@@ -82,7 +82,10 @@
      :rel rel :rev rev :resource resource :typeof typeof
      :content (or (attr "content")
                   (if as-literal
-                    "TEXT"; # TODO: el text / xml
+                    (apply str (map #(.getNodeValue %1)
+                                 (filter #(= (.getNodeType %1) Node/TEXT_NODE)
+                                         (node-list (.getChildNodes el)))))
+                    ; # TODO: or XMLLiteral
                     ))
      :lang (or (attr "lang") (attr "xml:lang"))
      :datatype datatype
@@ -149,7 +152,7 @@
 (defn visit-element [el env]
   (let [[triples next-env recurse] (next-state el env)
         child-elements (if recurse (filter #(= (.getNodeType %1) Node/ELEMENT_NODE)
-                               (node-list (.getChildNodes el))))]
+                                           (node-list (.getChildNodes el))))]
     (lazy-seq (concat triples
                       (mapcat #(visit-element %1 next-env) child-elements)))))
 
@@ -158,8 +161,8 @@
         docElem (.getDocumentElement doc)
         baseElems (.getElementsByTagName docElem "base")
         base (or (if (> (.getLength baseElems) 0)
-               (not-empty (.getAttribute (.item baseElems 0) "href")))
-               (.. (java.io.File. source) (toURI) (toString)))
+                   (not-empty (.getAttribute (.item baseElems 0) "href")))
+                 (.. (java.io.File. source) (toURI) (toString)))
         env (init-env base)]
     (visit-element docElem env)))
 
