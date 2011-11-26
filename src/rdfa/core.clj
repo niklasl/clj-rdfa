@@ -1,5 +1,6 @@
 (ns rdfa.core
   (:require [clojure.string :as string])
+  (:use [clojure.contrib.string :only (substring?)])
   (:import [javax.xml.parsers DocumentBuilderFactory]
            [org.w3c.dom Node]))
 
@@ -44,7 +45,7 @@
   ([repr env]
    (expand-curie repr (env :uri-map) (env :term-map) (env :vocab)))
   ([repr uri-map term-map vocab]
-   (if (str2/substring? ":" repr)
+   (if (substring? ":" repr)
     (let [[pfx term] (string/split repr #":")]
       (if-let [vocab (uri-map pfx)]
         (str vocab term)
