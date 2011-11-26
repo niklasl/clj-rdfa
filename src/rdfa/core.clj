@@ -23,6 +23,12 @@
 (defrecord IRI [iri])
 (defrecord Literal [value tag])
 
+(def bnode-counter (atom 0))
+
+(defn next-bnode []
+  (swap! bnode-counter inc)
+  (BNode. @bnode-counter))
+
 (def rdf-ns "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
 (def rdf-type (IRI. (str rdf-ns "type")))
 (def rdf-XMLLiteral (IRI. (str rdf-ns "XMLLiteral")))
@@ -118,13 +124,13 @@
   (map #(to-term env %1) (to-tokens expr)))
 
 (defn get-subject [data env]
-  ; TODO: (if (env :incomplete) and new predicate without new subject) BNode
+  ; TODO: (if (env :incomplete) and new predicate without new subject) (next-bnode)
   (or (if-let [it (or (data :about)
                       (if (not (or (data :rel) (data :rev) (data :property)))
                         (data :resource)))]
         (IRI. (resolve-iri it (env :base)))
         (if (data :typeof)
-          (BNode. 0))) ; TODO: incr! bnode-counter
+          (next-bnode)))
       (env :parent-object)))
 
 (defn get-predicates [data env]
