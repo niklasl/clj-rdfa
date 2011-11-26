@@ -189,9 +189,10 @@
     (visit-element docElem env)))
 
 
-; user => (do (use 'rdfa.core :reload) (-main))
+; user => (do (use 'rdfa.core :reload) (-main "resources/test.html"))
 (defn -main [& args]
-  (let [triples (extract-rdf "resources/test.html")]
+  (doseq [path args]
+    (let [triples (extract-rdf path)]
     (doseq [triple triples]
-      (-> triple repr-triple println))))
+      (-> triple repr-triple println)))))
 
