@@ -1,12 +1,12 @@
-<html xmlns="http://www.w3.org/1999/xhtml"
-      xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
-      xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
-      prefix="skos: http://www.w3.org/2008/05/skos#
-              dct: http://purl.org/dc/terms/
-              foaf: http://xmlns.com/foaf/0.1/
-              bibo: http://purl.org/ontology/bibo/ "
+<html prefix="
+            rdfs: http://www.w3.org/2000/01/rdf-schema#
+            xsd: http://www.w3.org/2001/XMLSchema#
+            skos: http://www.w3.org/2008/05/skos#
+            dct: http://purl.org/dc/terms/
+            foaf: http://xmlns.com/foaf/0.1/
+            bibo: http://purl.org/ontology/bibo/ "
       lang="en">
-  <head>
+  <head about="" typeof="foaf:Document bibo:Document">
     <base href="http://example.org/2011/example" />
     <title>Site: The Document</title>
     <meta property="dct:subject" content="keywords" />
@@ -22,6 +22,7 @@
     <div id="part_1" rel="hasPart" resource="#part_1">
       <h2 property="rdfs:label">Part One</h2>
       <p>...</p>
+      <a rel="isPartOf" href="">top</a>
     </div>
     <footer>
       <a rel="license" href="/cc-by">CC-BY</a>
