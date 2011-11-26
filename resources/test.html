@@ -19,7 +19,6 @@
             content="2011-11-05T00:07:31+0100"
             datatype="xsd:dateTime">00:07, on the fifth of november, 2011</span>.
     </p>
-
     <div id="part_1" rel="hasPart" resource="#part_1">
       <h2 property="rdfs:label">Part One</h2>
       <p>...</p>
@@ -29,8 +28,11 @@
       <p rel="creator">
         Created by
         <span about="/person/one#self">
-          <span property="foaf:name">One</span>
-        </span>.
+          <span property="foaf:name">One</span>,
+        </span>
+        <span about="/person/other#self"
+              property="foaf:name">Other</span> and
+        <span property="foaf:name">Unknown</span>.
       </p>
       <a rel="license" href="/cc-by">CC-BY</a>
     </footer>

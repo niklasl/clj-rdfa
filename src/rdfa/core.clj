@@ -20,7 +20,7 @@
                         (node-list (.getChildNodes el))))))
 
 (defrecord BNode [id])
-(defrecord IRI [iri])
+(defrecord IRI [id])
 (defrecord Literal [value tag])
 
 (def bnode-counter (atom 0))
@@ -36,7 +36,7 @@
 (defn repr-term [term]
   (let [t (type term)]
     (cond
-      (= t IRI) (str "<" (:iri term) ">")
+      (= t IRI) (str "<" (:id term) ">")
       (= t Literal) (str "\"" (:value term) "\""
                          (let [tag (:tag term)]
                            (cond
@@ -94,7 +94,7 @@
      :rel rel :rev rev :resource resource :typeof typeof
      :content (or (attr "content")
                   (if as-literal
-                    (get-content el (= datatype (:iri rdf-XMLLiteral)))))
+                    (get-content el (= datatype (:id rdf-XMLLiteral)))))
      :lang (or (attr "lang") (attr "xml:lang"))
      :datatype datatype
      :recurse (not as-literal)}))
@@ -124,14 +124,15 @@
   (map #(to-term env %1) (to-tokens expr)))
 
 (defn get-subject [data env]
-  ; TODO: (if (env :incomplete) and new predicate without new subject) (next-bnode)
-  (or (if-let [it (or (data :about)
-                      (if (not (or (data :rel) (data :rev) (data :property)))
-                        (data :resource)))]
-        (IRI. (resolve-iri it (env :base)))
-        (if (data :typeof)
-          (next-bnode)))
-      (env :parent-object)))
+  (let [new-pred (or (data :rel) (data :rev) (data :property))]
+    (or (if-let [it (or (data :about)
+                        (if (not new-pred)
+                          (data :resource)))]
+          (IRI. (resolve-iri it (env :base)))
+          (if (data :typeof)
+            (next-bnode)))
+        (if (and (not-empty (env :incomplete)) (data :property)) (next-bnode))
+        (env :parent-object))))
 
 (defn get-predicates [data env]
   (if-let [expr (or (data :property) (data :rel) (data :rev))]
@@ -147,14 +148,22 @@
   ; {:source (.getNodeName el) :line-nr nil}
   (let [data (get-data el)
         env (update-env env data)
+        parent-o (env :parent-object)
         s (get-subject data env)
         ps (get-predicates data env)
         o (get-object data env)
         types (if-let [expr (data :typeof)] (to-terms env expr))
         type-triples (for [t types] [s rdf-type t])
+        completed-triples (if s
+                            (for [rel (env :incomplete)]
+                              [parent-o rel s]))
         triples (concat type-triples
-                        (for [rel (env :incomplete)] [(env :parent-object) rel s])
+                        ; TODO: support rev
+                        completed-triples
                         (if o (for [p ps] [s p o])))
+        ; manage next :incomplete
+        env (if s (assoc env :incomplete []) env)
+        ; determine :parent-object or :incomplete
         env (cond
               (and o (not= (type o) Literal)) (assoc env :parent-object o)
               (data :about) (assoc env :parent-object s)
