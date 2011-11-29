@@ -19,6 +19,7 @@
                 (filter #(= (.getNodeType %1) Node/TEXT_NODE)
                         (node-list (.getChildNodes el))))))
 
+
 (defrecord BNode [id])
 (defrecord IRI [id])
 (defrecord Literal [value tag])
@@ -33,8 +34,12 @@
   (let [t (type term)]
     (cond
       (= t IRI) (str "<" (:id term) ">")
-      (= t Literal) (str "\"" (:value term) "\""
-                         (let [tag (:tag term)]
+      (= t Literal) (let [value (:value term)
+                          tag (:tag term)
+                          qt (if (> (.indexOf value "\n") -1)
+                               "\"\"\""
+                               "\"")]
+                      (str qt (:value term) qt
                            (cond
                              (= (type tag) IRI) (str "^^" (repr-term tag))
                              (not-empty tag) (str "@" tag))))
@@ -43,9 +48,9 @@
 (defn repr-triple [[s p o]]
   (str (repr-term s) " " (repr-term p) " " (repr-term o) " ."))
 
-(def rdf-ns "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
-(def rdf-type (IRI. (str rdf-ns "type")))
-(def rdf-XMLLiteral (IRI. (str rdf-ns "XMLLiteral")))
+(let [rdf "http://www.w3.org/1999/02/22-rdf-syntax-ns#"]
+  (def rdf:type (IRI. (str rdf "type")))
+  (def rdf:XMLLiteral (IRI. (str rdf "XMLLiteral"))))
 
 
 (defn resolve-iri [ref base]
@@ -94,7 +99,7 @@
      :rel rel :rev rev :resource resource :typeof typeof
      :content (or (attr "content")
                   (if as-literal
-                    (get-content el (= datatype (:id rdf-XMLLiteral)))))
+                    (get-content el (= datatype (:id rdf:XMLLiteral)))))
      :lang (or (attr "lang") (attr "xml:lang"))
      :datatype datatype
      :recurse (not as-literal)}))
@@ -126,20 +131,24 @@
 
 (defn get-subject [data env]
   (let [new-pred (or (data :rel) (data :rev) (data :property))]
-    (or (if-let [it (or (data :about)
-                        (if (not new-pred)
-                          (data :resource)))]
-          (IRI. (resolve-iri it (env :base)))
-          (if (data :typeof)
+    (or (if-let [s (or (data :about)
+                       (if (not new-pred)
+                         (data :resource)))]
+          (IRI. (resolve-iri s (env :base)))
+          (if (and (data :typeof) (not (data :resource)))
             (next-bnode)))
         (if (and (not-empty (env :incomplete)) (data :property)) (next-bnode))
         (env :parent-object))))
 
 (defn get-object [data env]
-  (or (if-let [it (data :resource)] (IRI. (resolve-iri it (env :base))))
+  (or (if-let [o (if (or (data :rel) (data :rev) (data :property))
+                    (data :resource))]
+        (IRI. (resolve-iri o (env :base))))
+      ; TODO: if new-pred-and-typeof-and-not-resource? (next-bnode)
       (if (data :content)
-        (Literal. (data :content) (or (if-let [dt (data :datatype)] (to-term env dt))
-                                      (or (data :lang) (env :lang)))))))
+        (Literal. (data :content)
+                  (or (if-let [dt (data :datatype)] (to-term env dt))
+                      (or (data :lang) (env :lang)))))))
 
 (defn next-state [el env]
   ; {:source (.getNodeName el) :line-nr nil}
@@ -153,7 +162,8 @@
         ps (concat props rels); TODO: separately if given both (link and content)
         o (get-object data env)
         types (if-let [expr (data :typeof)] (to-terms env expr))
-        type-triples (for [t types] [s rdf-type t])
+        type-triples (let [ts (if (or (data :about) (not o)) s o)]
+                       (for [t types] [ts rdf:type t]))
         completed-triples (if s
                             (for [rel (env :incomplete)]
                               [parent-o rel s]))
