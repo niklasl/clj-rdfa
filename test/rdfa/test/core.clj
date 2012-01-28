@@ -1,6 +1,37 @@
 (ns rdfa.test.core
-  (:use [rdfa.core])
-  (:use [clojure.test]))
+  (:use [rdfa.core] :reload)
+  ;(:use [clojure.test])
+  (:use midje.sweet))
 
-(deftest replace-me ;; FIXME: write
-  (is false "No tests have been written."))
+; $ lein midje --lazytest
+
+
+(facts
+
+  (repr-term (rdfa.core.IRI. "http://example.org/"))
+  => "<http://example.org/>"
+
+  (repr-term (rdfa.core.Literal. "hello" nil))
+  => "\"hello\""
+
+  (repr-term (rdfa.core.Literal. "hello" "en"))
+  => "\"hello\"@en"
+
+  (repr-term (rdfa.core.Literal.
+               "data" (rdfa.core.IRI. "http://example.org/ns#data")))
+  => "\"data\"^^<http://example.org/ns#data>" )
+
+
+(def env (init-env "./" {"ex" "http://example.org/ns#"}))
+
+(facts
+
+  (:base env)
+  => "./"
+
+  (:uri-map env)
+  => {"ex" "http://example.org/ns#"}
+
+  (expand-curie "ex:name" env)
+  => "http://example.org/ns#name" )
+

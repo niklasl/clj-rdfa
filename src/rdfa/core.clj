@@ -199,6 +199,7 @@
     (visit-element docElem env)))
 
 
+; $ lein run -m vimclojure.nailgun.NGServer 127.0.0.1
 ; user => (do (use 'rdfa.core :reload) (-main "resources/test.html"))
 (defn -main [& args]
   (doseq [path args]
