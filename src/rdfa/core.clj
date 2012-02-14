@@ -63,10 +63,12 @@
    (expand-curie repr (env :uri-map) (env :term-map) (env :vocab)))
   ([repr uri-map term-map vocab]
    (if (> (.indexOf repr ":") -1)
-    (let [[pfx term] (string/split repr #":")]
-      (if-let [vocab (uri-map pfx)]
-        (str vocab term)
-        repr))
+    (let [[pfx term] (string/split repr #":" 2)]
+      (if (.startsWith term "//")
+        repr
+        (if-let [vocab (uri-map pfx)]
+          (str vocab term)
+          repr)))
     (if-let [term (term-map repr)]
       term
       (str vocab repr)))))
