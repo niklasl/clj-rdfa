@@ -5,6 +5,21 @@
            [org.w3c.dom Node]))
 
 
+(declare dom-parse
+         init-env
+         visit-element)
+
+(defn extract-rdf [source]
+  (let [doc (dom-parse source)
+        docElem (.getDocumentElement doc)
+        baseElems (.getElementsByTagName docElem "base")
+        base (or (if (> (.getLength baseElems) 0)
+                   (not-empty (.getAttribute (.item baseElems 0) "href")))
+                 (.. (java.io.File. source) (toURI) (toString)))
+        env (init-env base)]
+    (visit-element docElem env)))
+
+
 (defn dom-parse [uri]
   (.. (DocumentBuilderFactory/newInstance) (newDocumentBuilder) (parse uri)))
 
@@ -31,19 +46,18 @@
   (BNode. @bnode-counter))
 
 (defn repr-term [term]
-  (let [t (type term)]
-    (cond
-      (= t IRI) (str "<" (:id term) ">")
-      (= t Literal) (let [value (:value term)
-                          tag (:tag term)
-                          qt (if (> (.indexOf value "\n") -1)
-                               "\"\"\""
-                               "\"")]
-                      (str qt (:value term) qt
-                           (cond
-                             (= (type tag) IRI) (str "^^" (repr-term tag))
-                             (not-empty tag) (str "@" tag))))
-      (= t BNode) (str "_:" (:id term)))))
+  (condp = (type term)
+    IRI (str "<" (:id term) ">")
+    Literal (let [value (:value term)
+                        tag (:tag term)
+                        qt (if (> (.indexOf value "\n") -1)
+                             "\"\"\""
+                             "\"")]
+                    (str qt (:value term) qt
+                         (cond
+                           (= (type tag) IRI) (str "^^" (repr-term tag))
+                           (not-empty tag) (str "@" tag))))
+    BNode (str "_:" (:id term))))
 
 (defn repr-triple [[s p o]]
   (str (repr-term s) " " (repr-term p) " " (repr-term o) " ."))
@@ -189,16 +203,6 @@
                                            (node-list (.getChildNodes el))))]
     (lazy-seq (concat triples
                       (mapcat #(visit-element %1 next-env) child-elements)))))
-
-(defn extract-rdf [source]
-  (let [doc (dom-parse source)
-        docElem (.getDocumentElement doc)
-        baseElems (.getElementsByTagName docElem "base")
-        base (or (if (> (.getLength baseElems) 0)
-                   (not-empty (.getAttribute (.item baseElems 0) "href")))
-                 (.. (java.io.File. source) (toURI) (toString)))
-        env (init-env base)]
-    (visit-element docElem env)))
 
 
 ; $ lein run -m vimclojure.nailgun.NGServer 127.0.0.1
