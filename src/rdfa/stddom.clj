@@ -18,6 +18,8 @@
   (get-child-elements [this]
     (filter #(= (.getNodeType %1) Node/ELEMENT_NODE)
             (node-list (.getChildNodes this))))
+  (get-attr [this attr-name]
+    (if (.hasAttribute this attr-name) (.getAttribute this attr-name)))
   (get-content [this as-xml]
     ; TODO: recursively; support as-xml
     (apply str (map #(.getNodeValue %1)

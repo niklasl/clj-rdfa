@@ -5,6 +5,7 @@
 
 (defprotocol DomAccess
   (get-child-elements [this])
+  (get-attr [this attr-name])
   (get-content [this as-xml]))
 
 
@@ -58,9 +59,7 @@
     :vocab vocab}))
 
 (defn get-data [el]
-  (let [attr #(if (.hasAttribute el %1) (.getAttribute el %1))
-        rel (attr "rel")
-        rev (attr "rev")
+  (let [attr #(get-attr el %1)
         property (attr "property")
         resource (or (attr "resource") (attr "href") (attr "src"))
         typeof (attr "typeof")
@@ -70,7 +69,10 @@
      :prefix (attr "prefix")
      :about (attr "about")
      :property property
-     :rel rel :rev rev :resource resource :typeof typeof
+     :rel (attr "rel")
+     :rev (attr "rev")
+     :resource resource
+     :typeof typeof
      :content (or (attr "content")
                   (if as-literal
                     (get-content el (= datatype (:id rdf:XMLLiteral)))))
