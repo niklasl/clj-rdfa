@@ -3,7 +3,6 @@
   ;(:use [clojure.test])
   (:use midje.sweet))
 
-; $ lein midje --lazytest
 
 (facts
   (repr-term (rdfa.core.IRI. "http://example.org/"))

@@ -4,7 +4,17 @@ Extract triples from RDFa 1.1 XHTML and HTML documents using Clojure.
 
 ## Usage
 
-TBD...
+In a REPL, run:
+
+    user => (do (use 'rdfa.core 'rdfa.stddom :reload) (-main "resources/test.html"))
+
+For interactive development, use e.g.:
+
+    $ lein run -m vimclojure.nailgun.NGServer 127.0.0.1
+
+Keep a test watcher running with:
+
+    $ lein midje --lazytest
 
 ## License
 

@@ -1,38 +1,10 @@
 (ns rdfa.core
-  (:gen-class)
-  (:require [clojure.string :as string])
-  (:import [javax.xml.parsers DocumentBuilderFactory]
-           [org.w3c.dom Node]))
+  (:require [clojure.string :as string]))
 
 
-(declare dom-parse
-         init-env
-         visit-element)
-
-(defn extract-rdf [source]
-  (let [doc (dom-parse source)
-        docElem (.getDocumentElement doc)
-        baseElems (.getElementsByTagName docElem "base")
-        base (or (if (> (.getLength baseElems) 0)
-                   (not-empty (.getAttribute (.item baseElems 0) "href")))
-                 (.. (java.io.File. source) (toURI) (toString)))
-        env (init-env base)]
-    (visit-element docElem env)))
-
-
-(defn dom-parse [uri]
-  (.. (DocumentBuilderFactory/newInstance) (newDocumentBuilder) (parse uri)))
-
-(defn node-list [nl]
-  (loop [index (dec (.getLength nl)) nodes nil]
-    (if (= index -1) nodes
-      (recur (dec index) (cons (.item nl index) nodes)))))
-
-(defn get-content [el as-xml]
-  ; TODO: recursively; support as-xml
-  (apply str (map #(.getNodeValue %1)
-                (filter #(= (.getNodeType %1) Node/TEXT_NODE)
-                        (node-list (.getChildNodes el))))))
+(defprotocol DomAccess
+  (get-child-elements [this])
+  (get-content [this as-xml]))
 
 
 (defrecord BNode [id])
@@ -48,15 +20,12 @@
 (defn repr-term [term]
   (condp = (type term)
     IRI (str "<" (:id term) ">")
-    Literal (let [value (:value term)
-                        tag (:tag term)
-                        qt (if (> (.indexOf value "\n") -1)
-                             "\"\"\""
-                             "\"")]
-                    (str qt (:value term) qt
-                         (cond
-                           (= (type tag) IRI) (str "^^" (repr-term tag))
-                           (not-empty tag) (str "@" tag))))
+    Literal (let [{value :value tag :tag} term
+                  qt (if (> (.indexOf value "\n") -1) "\"\"\"", \")]
+              (str qt value qt
+                   (cond
+                     (= (type tag) IRI) (str "^^" (repr-term tag))
+                     (not-empty tag) (str "@" tag))))
     BNode (str "_:" (:id term))))
 
 (defn repr-triple [[s p o]]
@@ -199,17 +168,10 @@
 
 (defn visit-element [el env]
   (let [[triples next-env recurse] (next-state el env)
-        child-elements (if recurse (filter #(= (.getNodeType %1) Node/ELEMENT_NODE)
-                                           (node-list (.getChildNodes el))))]
+        child-elements (if recurse (get-child-elements el))]
     (lazy-seq (concat triples
                       (mapcat #(visit-element %1 next-env) child-elements)))))
 
-
-; $ lein run -m vimclojure.nailgun.NGServer 127.0.0.1
-; user => (do (use 'rdfa.core :reload) (-main "resources/test.html"))
-(defn -main [& args]
-  (doseq [path args]
-    (let [triples (extract-rdf path)]
-      (doseq [triple triples]
-        (-> triple repr-triple println)))))
+(defn extract-triples [root base]
+    (visit-element root (init-env base)))
 
