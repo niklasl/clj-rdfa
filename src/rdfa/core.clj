@@ -1,4 +1,5 @@
 (ns rdfa.core
+  (:require rdfa.profiles)
   (:require [clojure.string :as string]))
 
 
@@ -43,17 +44,18 @@
       term
       (str vocab repr)))))
 
+
 (defn init-env
-  ([base] (init-env base {}))
-  ([base uri-map] (init-env base uri-map {}))
-  ([base uri-map term-map]
+  ([base]
+   (init-env base {} {} nil))
+  ([base uri-map term-map vocab]
    {:base base
     :parent-object (IRI. base)
     :uri-map uri-map
     :incomplete []
     :lang nil
     :term-map term-map
-    :vocab nil}))
+    :vocab vocab}))
 
 (defn get-data [el]
   (let [attr #(if (.hasAttribute el %1) (.getAttribute el %1))
@@ -74,6 +76,7 @@
                     (get-content el (= datatype (:id rdf:XMLLiteral)))))
      :lang (or (attr "lang") (attr "xml:lang"))
      :datatype datatype
+     ; TODO: remove recurse, it is not used in 1.1
      :recurse (not as-literal)}))
 
 (defn update-env [env data]
@@ -159,6 +162,10 @@
     (lazy-seq (concat triples
                       (mapcat #(visit-element %1 next-env) child-elements)))))
 
-(defn extract-triples [root base]
-    (visit-element root (init-env base)))
+(defn extract-triples
+  ([root base]
+      (extract-triples root base :core))
+  ([root base profile]
+   (let [[iri-map term-map vocab] (rdfa.profiles/registry profile)]
+     (visit-element root (init-env base iri-map term-map vocab)))))
 
