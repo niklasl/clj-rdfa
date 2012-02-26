@@ -45,6 +45,16 @@
       term
       (str vocab repr)))))
 
+(defn to-term [env repr]
+  (IRI. (expand-curie repr env)))
+
+(defn- to-tokens [expr]
+  (string/split (string/trim expr) #"\s+"))
+
+(defn to-terms [env expr]
+  (if (not-empty expr)
+    (map #(to-term env %1) (to-tokens expr))))
+
 
 (defn init-env
   ([base]
@@ -64,7 +74,8 @@
         resource (or (attr "resource") (attr "href") (attr "src"))
         typeof (attr "typeof")
         datatype (attr "datatype")
-        as-literal (and property (not (or typeof resource)))]
+        as-literal (and property (not (or typeof resource)))
+        as-xml (= datatype (:id rdf:XMLLiteral))]
     {:vocab (attr "vocab")
      :prefix (attr "prefix")
      :about (attr "about")
@@ -74,8 +85,7 @@
      :resource resource
      :typeof typeof
      :content (or (attr "content")
-                  (if as-literal
-                    (get-content el (= datatype (:id rdf:XMLLiteral)))))
+                  (if as-literal (get-content el as-xml)))
      :lang (or (attr "lang") (attr "xml:lang"))
      :datatype datatype
      ; TODO: remove recurse, it is not used in 1.1
@@ -95,16 +105,6 @@
               (assoc env :vocab vocab)
               env)]
     env))
-
-(defn to-term [env repr]
-  (IRI. (expand-curie repr env)))
-
-(defn to-tokens [expr]
-  (string/split (string/trim expr) #"\s+"))
-
-(defn to-terms [env expr]
-  (if (not-empty expr)
-    (map #(to-term env %1) (to-tokens expr))))
 
 (defn get-subject [data env]
   (let [new-pred (or (data :rel) (data :rev) (data :property))]
