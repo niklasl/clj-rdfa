@@ -17,19 +17,6 @@
   (swap! bnode-counter inc)
   (BNode. @bnode-counter))
 
-(defn repr-term [term]
-  (condp = (type term)
-    IRI (str "<" (:id term) ">")
-    Literal (let [{value :value tag :tag} term
-                  qt (if (> (.indexOf value "\n") -1) "\"\"\"", \")]
-              (str qt value qt
-                   (cond
-                     (= (type tag) IRI) (str "^^" (repr-term tag))
-                     (not-empty tag) (str "@" tag))))
-    BNode (str "_:" (:id term))))
-
-(defn repr-triple [[s p o]]
-  (str (repr-term s) " " (repr-term p) " " (repr-term o) " ."))
 
 (let [rdf "http://www.w3.org/1999/02/22-rdf-syntax-ns#"]
   (def rdf:type (IRI. (str rdf "type")))

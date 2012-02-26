@@ -1,6 +1,6 @@
 (ns rdfa.stddom
   (:gen-class)
-  (:require [rdfa.core])
+  (:require (rdfa core util))
   (:import [javax.xml.parsers DocumentBuilderFactory]
            [org.w3c.dom Node]))
 
@@ -36,5 +36,5 @@
   (doseq [path args]
     (let [triples (extract-rdf path)]
       (doseq [triple triples]
-        (-> triple rdfa.core/repr-triple println)))))
+        (-> triple rdfa.util/repr-triple println)))))
 
