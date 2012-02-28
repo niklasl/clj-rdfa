@@ -31,7 +31,7 @@
         baseElems (.getElementsByTagName root "base")
         base (or (if (> (.getLength baseElems) 0)
                    (not-empty (.getAttribute (.item baseElems 0) "href")))
-                 (.. (java.io.File. source) (toURI) (toString)))]
+                 (.. (java.net.URI. source) (toString)))]
     (rdfa.core/extract-triples root base)))
 
 (defn -main [& args]
