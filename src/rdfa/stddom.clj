@@ -26,10 +26,12 @@
     (filter #(= (.getNodeType %1) Node/ELEMENT_NODE)
             (node-list (.getChildNodes this))))
   (get-content [this as-xml]
-    ; TODO: recursively; support as-xml
-    (apply str (map #(.getNodeValue %1)
-                    (filter #(= (.getNodeType %1) Node/TEXT_NODE)
-                            (node-list (.getChildNodes this)))))))
+    ; TODO: support as-xml
+    (letfn [(get-values [node]
+              (cons (if (= (.getNodeType node) Node/TEXT_NODE)
+                      (.getNodeValue node))
+                    (map get-values (node-list (.getChildNodes node)))))]
+      (clojure.string/join (flatten (get-values this))))))
 
 (defn extract-rdf [source]
   (let [root (.getDocumentElement (dom-parse source))
