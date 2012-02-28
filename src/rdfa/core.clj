@@ -33,8 +33,10 @@
 
 (defn expand-curie
   ([repr env]
-   (expand-curie
-     repr (env :base) (env :prefix-map) (env :term-map) (env :vocab)))
+   (expand-curie repr (env :base)
+                 (env :prefix-map) (env :term-map) (env :vocab)))
+  ([repr base prefix-map]
+   (expand-curie repr base prefix-map {} nil))
   ([repr base prefix-map term-map vocab]
    (let [repr (string/replace-first repr #"^\[?(.*?)\]?$" "$1")
          to-iri #(IRI. (resolve-iri %1 base))]
@@ -42,20 +44,20 @@
        (> (.indexOf repr ":") -1)
        (let [[pfx term] (string/split repr #":" 2)]
          (cond
-           (= pfx "_")
-           (BNode. term)
-           (.startsWith term "//")
-           (to-iri repr)
-           :else
-           (if-let [vocab (prefix-map pfx)]
-             (to-iri (str vocab term))
-             (to-iri repr))))
+           (= pfx "_") (BNode. term)
+           (.startsWith term "//") (to-iri repr)
+           :else (if-let [vocab (prefix-map pfx)]
+                   (to-iri (str vocab term))
+                   (to-iri repr))))
        (not-empty vocab)
        (to-iri (str vocab repr))
        :else
        (if-let [iri (term-map repr)]
          (to-iri iri)
          (to-iri repr))))))
+
+(defn expand-curie-sans-terms [repr env]
+   (expand-curie repr (env :base) (env :prefix-map)))
 
 (defn to-node [env repr]
   (expand-curie repr env))
@@ -80,9 +82,10 @@
   ([base prefix-map term-map vocab]
    {:base base
     :parent-object (IRI. base)
-    :prefix-map prefix-map
     :incomplete []
+    :list-map {}
     :lang nil
+    :prefix-map prefix-map
     :term-map term-map
     :vocab vocab}))
 
@@ -125,52 +128,60 @@
     (or (if-let [s (or (data :about)
                        (if (not new-pred)
                          (data :resource)))]
-          (expand-curie s env)
+          (expand-curie-sans-terms s env)
           (if (and (data :typeof) (not (data :resource)))
             (next-bnode)))
-        (if (and (not-empty (env :incomplete)) (data :property)) (next-bnode))
-        (env :parent-object))))
+        (if (and new-pred (not-empty (env :incomplete)))
+          (next-bnode)))))
 
 (defn get-object [data env]
-  (or (if-let [o (if (or (data :rel) (data :rev) (data :property))
-                    (data :resource))]
-        (expand-curie o env))
-      ; TODO: if new-pred-and-typeof-and-not-resource? (next-bnode)
-      (if (data :content)
-        (Literal. (data :content)
-                  (or (if-let [dt (data :datatype)] (to-node env dt))
-                      (or (data :lang) (env :lang)))))))
+  (cond
+    (data :resource)
+    (expand-curie-sans-terms (data :resource) env)
+    (data :content)
+    (Literal. (data :content)
+              (or (if-let [dt (data :datatype)] (to-node env dt))
+                  (or (data :lang) (env :lang))))
+    (or (and (or (data :rel) (data :rev)) (data :resource))
+        (and (data :property) (data :typeof)))
+    (next-bnode)))
 
 (defn next-state [el env]
-  ; {:source (.getNodeName el) :line-nr nil}
-  (let [data (get-data el)
+  (let [tag (.getNodeName el); :line-nr (... el)
+        data (get-data el)
         env (update-env env data)
         parent-o (env :parent-object)
-        s (get-subject data env)
+        new-s (get-subject data env)
+        s (or new-s (env :parent-object))
         props (to-nodes env (data :property))
         rels (to-nodes env (data :rel))
         revs (to-nodes env (data :rev))
+        incomplete (env :incomplete)
         ps (concat props rels); TODO: separately if given both (link and content)
         o (get-object data env)
+        new-parent-o (if (and o (not= (type o) Literal)) o s)
         types (if-let [expr (data :typeof)] (to-nodes env expr))
         type-triples (let [ts (if (or (data :about) (not o)) s o)]
                        (for [t types] [ts rdf:type t]))
-        completed-triples (if s
-                            (for [rel (env :incomplete)]
-                              [parent-o rel s]))
+        completed-triples (if (and new-parent-o incomplete)
+                            (let [[rels revs] incomplete]
+                              (lazy-cat
+                                (for [rel rels] [parent-o rel new-parent-o])
+                                (for [rev revs] [new-parent-o rev parent-o]))))
         triples (concat type-triples
                         completed-triples
                         (if o (lazy-cat
                                 (for [p ps] [s p o])
                                 (for [p revs] [o p s]))))
         ; TODO: if (data :inlist)
-        ; manage next :incomplete
-        env (if s (assoc env :incomplete []) env)
-        ; determine :parent-object or :incomplete
+        ;DEBUG:_ (println {:tag tag :incomplete incomplete})
         env (cond
-              (and o (not= (type o) Literal)) (assoc env :parent-object o)
-              (data :about) (assoc env :parent-object s)
-              :else (assoc env :incomplete ps))]
+              (not-empty completed-triples) (assoc env :incomplete [])
+              (and (not o) (or rels revs)) (assoc env :incomplete [rels revs])
+              :else env)
+        env (if new-parent-o
+              (assoc env :parent-object new-parent-o)
+              env)]
     [triples env]))
 
 (defn visit-element [el env]
@@ -183,6 +194,6 @@
   ([root base]
       (extract-triples root base :core))
   ([root base profile]
-   (let [[iri-map term-map vocab] (rdfa.profiles/registry profile)]
-     (visit-element root (init-env base iri-map term-map vocab)))))
+   (let [[prefix-map term-map vocab] (rdfa.profiles/registry profile)]
+     (visit-element root (init-env base prefix-map term-map vocab)))))
 

@@ -1,6 +1,6 @@
 (ns rdfa.test.core
   (:use midje.sweet)
-  (:use [rdfa.core] :reload)
+  (:use [rdfa.core])
   (:import [rdfa.core IRI Literal BNode]))
 
 
@@ -41,7 +41,10 @@
   => (IRI. "http://example.org/vocab#role")
 
   (expand-curie "other" env-w-vocab)
-  => (IRI. "http://example.org/vocab#other") )
+  => (IRI. "http://example.org/vocab#other")
+
+  (expand-curie-sans-terms "other" env-w-vocab)
+  => (IRI. "other") )
 
 (facts
 
