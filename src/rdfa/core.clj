@@ -87,9 +87,7 @@
      :content (or (attr "content")
                   (if as-literal (get-content el as-xml)))
      :lang (or (attr "lang") (attr "xml:lang"))
-     :datatype datatype
-     ; TODO: remove recurse, it is not used in 1.1
-     :recurse (not as-literal)}))
+     :datatype datatype}))
 
 (defn update-env [env data]
   (let [env (if-let [lang (data :lang)]
@@ -156,11 +154,11 @@
               (and o (not= (type o) Literal)) (assoc env :parent-object o)
               (data :about) (assoc env :parent-object s)
               :else (assoc env :incomplete ps))]
-    [triples env (data :recurse)]))
+    [triples env]))
 
 (defn visit-element [el env]
-  (let [[triples next-env recurse] (next-state el env)
-        child-elements (if recurse (get-child-elements el))]
+  (let [[triples next-env] (next-state el env)
+        child-elements (get-child-elements el)]
     (lazy-seq (concat triples
                       (mapcat #(visit-element %1 next-env) child-elements)))))
 
