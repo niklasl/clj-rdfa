@@ -1,29 +1,45 @@
 (ns rdfa.test.core
   (:use midje.sweet)
-  (:use [rdfa.core] :reload))
+  (:use [rdfa.core] :reload)
+  (:import [rdfa.core IRI Literal BNode]))
 
 
-(def env (init-env "./" {"ex" "http://example.org/ns#"} {} nil))
+(def env (init-env "./"
+                   {"ex" "http://example.org/ns#"}
+                   {"role" "http://example.org/ns#role"}
+                   nil))
+
+(def env-w-vocab (assoc env :vocab "http://example.org/vocab#"))
 
 (facts
 
-  (:base env)
-  => "./"
-
-  (:uri-map env)
-  => {"ex" "http://example.org/ns#"}
-
   (expand-curie "ex:name" env)
-  => "http://example.org/ns#name"
+  => (IRI. "http://example.org/ns#name")
 
   (expand-curie "ex:name:first" env)
-  => "http://example.org/ns#name:first"
+  => (IRI. "http://example.org/ns#name:first")
 
   (expand-curie "ex:/name" env)
-  => "http://example.org/ns#/name"
+  => (IRI. "http://example.org/ns#/name")
 
   (expand-curie "ex://name" env)
-  => "ex://name"
+  => (IRI. "ex://name")
 
-  )
+  (expand-curie "[ex:name]" env)
+  => (IRI. "http://example.org/ns#name")
+
+  (expand-curie "_:a" env)
+  => (BNode. "a")
+
+  (expand-curie "role" env)
+  => (IRI. "http://example.org/ns#role")
+
+  (expand-curie "other" env)
+  => (IRI. "other")
+
+  (expand-curie "role" env-w-vocab)
+  => (IRI. "http://example.org/vocab#role")
+
+  (expand-curie "other" env-w-vocab)
+  => (IRI. "http://example.org/vocab#other") )
 

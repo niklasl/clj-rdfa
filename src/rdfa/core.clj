@@ -25,44 +25,55 @@
   (def rdf:XMLLiteral (IRI. (str rdf "XMLLiteral"))))
 
 
-(defn resolve-iri [ref base]
-  (if (not-empty ref)
-    (.. (java.net.URI. base) (resolve ref) (toString))
+(defn resolve-iri [iref base]
+  (if (not-empty iref)
+    (.. (java.net.URI. base) (resolve iref) (toString))
     base))
 
 (defn expand-curie
   ([repr env]
-   (expand-curie repr (env :uri-map) (env :term-map) (env :vocab)))
-  ([repr uri-map term-map vocab]
-   (if (> (.indexOf repr ":") -1)
-    (let [[pfx term] (string/split repr #":" 2)]
-      (if (.startsWith term "//")
-        repr
-        (if-let [vocab (uri-map pfx)]
-          (str vocab term)
-          repr)))
-    (if-let [term (term-map repr)]
-      term
-      (str vocab repr)))))
+   (expand-curie
+     repr (env :base) (env :prefix-map) (env :term-map) (env :vocab)))
+  ([repr base prefix-map term-map vocab]
+   (let [repr (string/replace-first repr #"^\[?(.*?)\]?$" "$1")
+         to-iri #(IRI. (resolve-iri %1 base))]
+     (cond
+       (> (.indexOf repr ":") -1)
+       (let [[pfx term] (string/split repr #":" 2)]
+         (cond
+           (= pfx "_")
+           (BNode. term)
+           (.startsWith term "//")
+           (to-iri repr)
+           :else
+           (if-let [vocab (prefix-map pfx)]
+             (to-iri (str vocab term))
+             (to-iri repr))))
+       (not-empty vocab)
+       (to-iri (str vocab repr))
+       :else
+       (if-let [iri (term-map repr)]
+         (to-iri iri)
+         (to-iri repr))))))
 
-(defn to-term [env repr]
-  (IRI. (expand-curie repr env)))
+(defn to-node [env repr]
+  (expand-curie repr env))
 
 (defn- to-tokens [expr]
   (string/split (string/trim expr) #"\s+"))
 
-(defn to-terms [env expr]
+(defn to-nodes [env expr]
   (if (not-empty expr)
-    (map #(to-term env %1) (to-tokens expr))))
+    (map #(to-node env %1) (to-tokens expr))))
 
 
 (defn init-env
   ([base]
    (init-env base {} {} nil))
-  ([base uri-map term-map vocab]
+  ([base prefix-map term-map vocab]
    {:base base
     :parent-object (IRI. base)
-    :uri-map uri-map
+    :prefix-map prefix-map
     :incomplete []
     :lang nil
     :term-map term-map
@@ -76,8 +87,10 @@
         datatype (attr "datatype")
         as-literal (and property (not (or typeof resource)))
         as-xml (= datatype (:id rdf:XMLLiteral))]
-    {:vocab (attr "vocab")
+    {
+     ;:nsmap (get-ns-map el) ;TODO: get xmlns; (merge nsmap prefix)
      :prefix (attr "prefix")
+     :vocab (attr "vocab")
      :about (attr "about")
      :property property
      :rel (attr "rel")
@@ -94,7 +107,7 @@
               (assoc env :lang lang)
               env)
         env (if-let [prefix (not-empty (string/trim (or (data :prefix) "")))]
-              (update-in env [:uri-map]
+              (update-in env [:prefix-map]
                          #(merge %1
                                  (apply hash-map
                                         (string/split prefix #":?\s+"))))
@@ -109,7 +122,7 @@
     (or (if-let [s (or (data :about)
                        (if (not new-pred)
                          (data :resource)))]
-          (IRI. (resolve-iri s (env :base)))
+          (expand-curie s env)
           (if (and (data :typeof) (not (data :resource)))
             (next-bnode)))
         (if (and (not-empty (env :incomplete)) (data :property)) (next-bnode))
@@ -118,11 +131,11 @@
 (defn get-object [data env]
   (or (if-let [o (if (or (data :rel) (data :rev) (data :property))
                     (data :resource))]
-        (IRI. (resolve-iri o (env :base))))
+        (expand-curie o env))
       ; TODO: if new-pred-and-typeof-and-not-resource? (next-bnode)
       (if (data :content)
         (Literal. (data :content)
-                  (or (if-let [dt (data :datatype)] (to-term env dt))
+                  (or (if-let [dt (data :datatype)] (to-node env dt))
                       (or (data :lang) (env :lang)))))))
 
 (defn next-state [el env]
@@ -131,12 +144,12 @@
         env (update-env env data)
         parent-o (env :parent-object)
         s (get-subject data env)
-        props (to-terms env (data :property))
-        rels (to-terms env (data :rel))
-        revs (to-terms env (data :rev))
+        props (to-nodes env (data :property))
+        rels (to-nodes env (data :rel))
+        revs (to-nodes env (data :rev))
         ps (concat props rels); TODO: separately if given both (link and content)
         o (get-object data env)
-        types (if-let [expr (data :typeof)] (to-terms env expr))
+        types (if-let [expr (data :typeof)] (to-nodes env expr))
         type-triples (let [ts (if (or (data :about) (not o)) s o)]
                        (for [t types] [ts rdf:type t]))
         completed-triples (if s
