@@ -5,7 +5,7 @@
 
 
 (def env (init-env "./"
-                   {"ex" "http://example.org/ns#"}
+                   {"ns" "http://example.org/ns#"}
                    {"role" "http://example.org/ns#role"}
                    nil))
 
@@ -13,19 +13,19 @@
 
 (facts
 
-  (expand-curie "ex:name" env)
+  (expand-curie "ns:name" env)
   => (IRI. "http://example.org/ns#name")
 
-  (expand-curie "ex:name:first" env)
+  (expand-curie "ns:name:first" env)
   => (IRI. "http://example.org/ns#name:first")
 
-  (expand-curie "ex:/name" env)
+  (expand-curie "ns:/name" env)
   => (IRI. "http://example.org/ns#/name")
 
-  (expand-curie "ex://name" env)
-  => (IRI. "ex://name")
+  (expand-curie "ns://name" env)
+  => (IRI. "ns://name")
 
-  (expand-curie "[ex:name]" env)
+  (expand-curie "[ns:name]" env)
   => (IRI. "http://example.org/ns#name")
 
   (expand-curie "_:a" env)
@@ -42,4 +42,16 @@
 
   (expand-curie "other" env-w-vocab)
   => (IRI. "http://example.org/vocab#other") )
+
+(facts
+
+  (parse-prefix "ns: http://example.org/ns#")
+  => {"ns" "http://example.org/ns#"}
+
+  (parse-prefix "  ns:   http://example.org/ns#
+                   voc: http://example.org/vocab#  ")
+  => {"ns" "http://example.org/ns#", "voc" "http://example.org/vocab#"}
+
+  (parse-prefix "")
+  => nil )
 

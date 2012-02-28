@@ -4,8 +4,9 @@
 
 
 (defprotocol DomAccess
-  (get-child-elements [this])
   (get-attr [this attr-name])
+  (get-ns-map [this])
+  (get-child-elements [this])
   (get-content [this as-xml]))
 
 
@@ -66,6 +67,12 @@
   (if (not-empty expr)
     (map #(to-node env %1) (to-tokens expr))))
 
+(defn parse-prefix [prefix]
+  (if (empty? prefix)
+    nil
+    (apply hash-map (string/split
+                      (string/trim (or prefix ""))
+                      #":?\s+"))))
 
 (defn init-env
   ([base]
@@ -85,11 +92,10 @@
         resource (or (attr "resource") (attr "href") (attr "src"))
         typeof (attr "typeof")
         datatype (attr "datatype")
+        prefix-map (parse-prefix (attr "prefix"))
         as-literal (and property (not (or typeof resource)))
         as-xml (= datatype (:id rdf:XMLLiteral))]
-    {
-     ;:nsmap (get-ns-map el) ;TODO: get xmlns; (merge nsmap prefix)
-     :prefix (attr "prefix")
+    {:prefix-map (merge (get-ns-map el) prefix-map)
      :vocab (attr "vocab")
      :about (attr "about")
      :property property
@@ -97,6 +103,7 @@
      :rev (attr "rev")
      :resource resource
      :typeof typeof
+     :inlist (attr "inlist")
      :content (or (attr "content")
                   (if as-literal (get-content el as-xml)))
      :lang (or (attr "lang") (attr "xml:lang"))
@@ -106,12 +113,8 @@
   (let [env (if-let [lang (data :lang)]
               (assoc env :lang lang)
               env)
-        env (if-let [prefix (not-empty (string/trim (or (data :prefix) "")))]
-              (update-in env [:prefix-map]
-                         #(merge %1
-                                 (apply hash-map
-                                        (string/split prefix #":?\s+"))))
-              env)
+        env (update-in env [:prefix-map]
+                       #(merge %1 (data :prefix-map)))
         env (if-let [vocab (data :vocab)]
               (assoc env :vocab vocab)
               env)]
@@ -160,6 +163,7 @@
                         (if o (lazy-cat
                                 (for [p ps] [s p o])
                                 (for [p revs] [o p s]))))
+        ; TODO: if (data :inlist)
         ; manage next :incomplete
         env (if s (assoc env :incomplete []) env)
         ; determine :parent-object or :incomplete
