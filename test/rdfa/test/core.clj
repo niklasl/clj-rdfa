@@ -17,37 +17,37 @@
 
 (facts
 
-  (expand-curie "ns:name" env)
+  (expand-term-or-curie "ns:name" env)
   => (IRI. "http://example.org/ns#name")
 
-  (expand-curie "ns:name:first" env)
+  (expand-term-or-curie "ns:name:first" env)
   => (IRI. "http://example.org/ns#name:first")
 
-  (expand-curie "ns:/name" env)
+  (expand-term-or-curie "ns:/name" env)
   => (IRI. "http://example.org/ns#/name")
 
-  (expand-curie "ns://name" env)
+  (expand-term-or-curie "ns://name" env)
   => (IRI. "ns://name")
 
-  (expand-curie "[ns:name]" env)
+  (expand-term-or-curie "[ns:name]" env)
   => (IRI. "http://example.org/ns#name")
 
-  (expand-curie "_:a" env)
+  (expand-term-or-curie "_:a" env)
   => (BNode. "a")
 
-  (expand-curie "role" env)
+  (expand-term-or-curie "role" env)
   => (IRI. "http://example.org/ns#role")
 
-  (expand-curie "other" env)
+  (expand-term-or-curie "other" env)
   => (IRI. "other")
 
-  (expand-curie "role" env-w-vocab)
+  (expand-term-or-curie "role" env-w-vocab)
   => (IRI. "http://example.org/vocab#role")
 
-  (expand-curie "other" env-w-vocab)
+  (expand-term-or-curie "other" env-w-vocab)
   => (IRI. "http://example.org/vocab#other")
 
-  (expand-curie-sans-terms "other" env-w-vocab)
+  (expand-curie "other" env-w-vocab)
   => (IRI. "other") )
 
 
