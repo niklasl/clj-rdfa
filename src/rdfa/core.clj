@@ -14,20 +14,24 @@
 (defrecord IRI [id])
 (defrecord Literal [value tag])
 
+(def gen-bnode-prefix "GEN")
+
 (def bnode-counter (atom 0))
 
 (defn next-bnode []
   (swap! bnode-counter inc)
-  (BNode. (str "gen" @bnode-counter)))
+  (BNode. (str gen-bnode-prefix @bnode-counter)))
 
 
 (let [rdf "http://www.w3.org/1999/02/22-rdf-syntax-ns#"]
   (def rdf:type (IRI. (str rdf "type")))
   (def rdf:XMLLiteral (IRI. (str rdf "XMLLiteral")))
+  (def rdf:first (IRI. (str rdf "first")))
+  (def rdf:rest (IRI. (str rdf "rest")))
+  (def rdf:nil (IRI. (str rdf "nil")))
   (def rdfa:usesVocabulary (IRI. "http://www.w3.org/ns/rdfa#usesVocabulary")))
 
 (def xhv "http://www.w3.org/1999/xhtml/vocab#")
-
 
 
 (defn resolve-iri [iref base]
@@ -38,7 +42,7 @@
 (defn expand-term-or-curie
   ([repr env]
    (expand-term-or-curie repr (env :base)
-                 (env :prefix-map) (env :term-map) (env :vocab)))
+                         (env :prefix-map) (env :term-map) (env :vocab)))
   ([repr base prefix-map]
    (expand-term-or-curie repr base prefix-map {} nil))
   ([repr base prefix-map term-map vocab]
@@ -48,7 +52,7 @@
        (> (.indexOf repr ":") -1)
        (let [[pfx term] (string/split repr #":" 2)]
          (cond
-           (= pfx "_") (BNode. term)
+           (= pfx "_") (BNode. (or (not-empty term) gen-bnode-prefix))
            (.startsWith term "//") (to-iri repr)
            (empty? pfx) (to-iri (str xhv term))
            :else (if-let [vocab (prefix-map pfx)]
@@ -62,7 +66,7 @@
          (to-iri repr))))))
 
 (defn expand-curie [repr env]
-   (expand-term-or-curie repr (env :base) (env :prefix-map)))
+  (expand-term-or-curie repr (env :base) (env :prefix-map)))
 
 (defn to-node [env repr]
   (expand-term-or-curie repr env))
@@ -153,54 +157,79 @@
         (and (data :property) (data :typeof)))
     (next-bnode)))
 
+(defn get-props-rels-revs-lists [data env]
+  (let [inlist (data :inlist)
+        props (to-nodes env (data :property))
+        rels (to-nodes env (data :rel))
+        revs (to-nodes env (data :rev))]
+    (if inlist
+      [nil nil revs (or props rels)]
+      [props rels revs nil])))
+
 (defn next-state [el env]
   (let [data (get-data el)
         env (update-env env data)
         parent-o (env :parent-object)
         incomplete (env :incomplete)
+        list-map (env :list-map)
         new-s (get-subject data env)
         s (or new-s parent-o)
-        props (to-nodes env (data :property))
-        rels (to-nodes env (data :rel))
-        revs (to-nodes env (data :rev))
+        [props
+         rels
+         revs
+         list-ps] (get-props-rels-revs-lists data env)
         ps (concat props rels); TODO: separately if given both (link and content)
         o (get-object data env)
-        new-parent-o (if (and o (not= (type o) Literal)) o s)
+        next-parent-o (if (and o (not= (type o) Literal)) o s)
         types (if-let [expr (data :typeof)] (to-nodes env expr))
+        ; TODO: uses of l below must (somehow) build a bnode list chain
+        new-list-map (into {} (for [p list-ps]
+                                [p (or (list-map p) (next-bnode))]))
         type-triples (let [ts (if (or (data :about) (not o)) s o)]
                        (for [t types] [ts rdf:type t]))
-        completed-triples (if (and new-parent-o incomplete)
-                            (let [[rels revs] incomplete]
-                              (lazy-cat
-                                (for [rel rels] [parent-o rel new-parent-o])
-                                (for [rev revs] [new-parent-o rev parent-o]))))
-        triples (concat type-triples
-                        completed-triples
-                        (if o (lazy-cat
+        completed-triples (if next-parent-o
+                            (let [[rels revs lists] incomplete]
+                              (concat
+                                (for [rel rels] [parent-o rel next-parent-o])
+                                (for [rev revs] [next-parent-o rev parent-o])
+                                (if o
+                                  (for [l lists] [l rdf:first o])))))
+        regular-triples (if o (concat
                                 (for [p ps] [s p o])
                                 (for [p revs] [o p s])))
-                        (if-let [v (data :vocab)]
-                          [[(IRI. (env :base)) rdfa:usesVocabulary (IRI. v)]]))
-        ; TODO: if (data :inlist)
-        ;DEBUG:_ (println {:tag (data :tag) :incomplete incomplete})
+        list-triples (mapcat (fn [[p l]]
+                               (concat [[s p l]]
+                                       (if o [[l rdf:first o]])))
+                             new-list-map)
+        vocab-triples (if-let [v (data :vocab)]
+                        [[(IRI. (env :base)) rdfa:usesVocabulary (IRI. v)]])
         env (cond
               (not-empty completed-triples) (assoc env :incomplete [])
-              (and (not o) (or rels revs)) (assoc env :incomplete [rels revs])
+              (and (not o)
+                   (or rels revs list-ps)) (assoc env :incomplete
+                                                  [rels revs
+                                                   (vals new-list-map)])
               :else env)
-        env (if new-parent-o
-              (assoc env :parent-object new-parent-o)
-              env)]
-    [triples env]))
+        env (assoc env :parent-object next-parent-o)
+        env (assoc env :list-map new-list-map)]
+    [(concat type-triples
+             completed-triples
+             regular-triples
+             list-triples
+             vocab-triples) env]))
 
 (defn visit-element [el env]
+  ; TODO: track children and siblings for list-maps
   (let [[triples next-env] (next-state el env)
         child-elements (get-child-elements el)]
     (lazy-seq (concat triples
-                      (mapcat #(visit-element %1 next-env) child-elements)))))
+                      (mapcat #(visit-element %1 next-env) child-elements)
+                      (if-let [list-map (next-env :list-map)]
+                        (for [l (vals list-map)] [l rdf:rest rdf:nil]))))))
 
 (defn extract-triples
   ([root base]
-      (extract-triples root base :core))
+   (extract-triples root base :core))
   ([root base profile]
    (let [[prefix-map term-map vocab] (rdfa.profiles/registry profile)]
      (visit-element root (init-env base prefix-map term-map vocab)))))
