@@ -4,6 +4,10 @@
   (:import [rdfa.core IRI Literal BNode]))
 
 
+(fact (:base (init-env "path#frag" nil nil nil))
+      => "path")
+
+
 (def env (init-env "./"
                    {"ns" "http://example.org/ns#"}
                    {"role" "http://example.org/ns#role"}
@@ -45,6 +49,7 @@
 
   (expand-curie-sans-terms "other" env-w-vocab)
   => (IRI. "other") )
+
 
 (facts
 

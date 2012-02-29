@@ -18,12 +18,16 @@
 
 (defn next-bnode []
   (swap! bnode-counter inc)
-  (BNode. @bnode-counter))
+  (BNode. (str "gen" @bnode-counter)))
 
 
 (let [rdf "http://www.w3.org/1999/02/22-rdf-syntax-ns#"]
   (def rdf:type (IRI. (str rdf "type")))
-  (def rdf:XMLLiteral (IRI. (str rdf "XMLLiteral"))))
+  (def rdf:XMLLiteral (IRI. (str rdf "XMLLiteral")))
+  (def rdfa:usesVocabulary (IRI. "http://www.w3.org/ns/rdfa#usesVocabulary")))
+
+(def xhv "http://www.w3.org/1999/xhtml/vocab#")
+
 
 
 (defn resolve-iri [iref base]
@@ -31,12 +35,12 @@
     (.. (java.net.URI. base) (resolve iref) (toString))
     base))
 
-(defn expand-curie
+(defn expand-term-or-curie
   ([repr env]
-   (expand-curie repr (env :base)
+   (expand-term-or-curie repr (env :base)
                  (env :prefix-map) (env :term-map) (env :vocab)))
   ([repr base prefix-map]
-   (expand-curie repr base prefix-map {} nil))
+   (expand-term-or-curie repr base prefix-map {} nil))
   ([repr base prefix-map term-map vocab]
    (let [repr (string/replace-first repr #"^\[?(.*?)\]?$" "$1")
          to-iri #(IRI. (resolve-iri %1 base))]
@@ -46,21 +50,22 @@
          (cond
            (= pfx "_") (BNode. term)
            (.startsWith term "//") (to-iri repr)
+           (empty? pfx) (to-iri (str xhv term))
            :else (if-let [vocab (prefix-map pfx)]
                    (to-iri (str vocab term))
                    (to-iri repr))))
        (not-empty vocab)
        (to-iri (str vocab repr))
        :else
-       (if-let [iri (term-map repr)]
+       (if-let [iri (term-map (string/lower-case repr))]
          (to-iri iri)
          (to-iri repr))))))
 
-(defn expand-curie-sans-terms [repr env]
-   (expand-curie repr (env :base) (env :prefix-map)))
+(defn expand-curie [repr env]
+   (expand-term-or-curie repr (env :base) (env :prefix-map)))
 
 (defn to-node [env repr]
-  (expand-curie repr env))
+  (expand-term-or-curie repr env))
 
 (defn- to-tokens [expr]
   (string/split (string/trim expr) #"\s+"))
@@ -80,14 +85,15 @@
   ([base]
    (init-env base {} {} nil))
   ([base prefix-map term-map vocab]
-   {:base base
-    :parent-object (IRI. base)
-    :incomplete []
-    :list-map {}
-    :lang nil
-    :prefix-map prefix-map
-    :term-map term-map
-    :vocab vocab}))
+   (let [base (let [i (.indexOf base "#")] (if (> i -1) (subs base 0 i) base))]
+     {:base base
+      :parent-object (IRI. base)
+      :incomplete []
+      :list-map {}
+      :lang nil
+      :prefix-map prefix-map
+      :term-map term-map
+      :vocab vocab})))
 
 (defn get-data [el]
   (let [attr #(get-attr el %1)
@@ -98,7 +104,8 @@
         prefix-map (parse-prefix (attr "prefix"))
         as-literal (and property (not (or typeof resource)))
         as-xml (= datatype (:id rdf:XMLLiteral))]
-    {:prefix-map (merge (get-ns-map el) prefix-map)
+    {:tag (.getNodeName el); :line-nr (... el)
+     :prefix-map (merge (get-ns-map el) prefix-map)
      :vocab (attr "vocab")
      :about (attr "about")
      :property property
@@ -128,7 +135,7 @@
     (or (if-let [s (or (data :about)
                        (if (not new-pred)
                          (data :resource)))]
-          (expand-curie-sans-terms s env)
+          (expand-curie s env)
           (if (and (data :typeof) (not (data :resource)))
             (next-bnode)))
         (if (and new-pred (not-empty (env :incomplete)))
@@ -137,26 +144,25 @@
 (defn get-object [data env]
   (cond
     (data :resource)
-    (expand-curie-sans-terms (data :resource) env)
+    (expand-curie (data :resource) env)
     (data :content)
     (Literal. (data :content)
-              (or (if-let [dt (data :datatype)] (to-node env dt))
+              (or (if-let [dt (not-empty (data :datatype))] (to-node env dt))
                   (or (data :lang) (env :lang))))
     (or (and (or (data :rel) (data :rev)) (data :resource))
         (and (data :property) (data :typeof)))
     (next-bnode)))
 
 (defn next-state [el env]
-  (let [tag (.getNodeName el); :line-nr (... el)
-        data (get-data el)
+  (let [data (get-data el)
         env (update-env env data)
         parent-o (env :parent-object)
+        incomplete (env :incomplete)
         new-s (get-subject data env)
-        s (or new-s (env :parent-object))
+        s (or new-s parent-o)
         props (to-nodes env (data :property))
         rels (to-nodes env (data :rel))
         revs (to-nodes env (data :rev))
-        incomplete (env :incomplete)
         ps (concat props rels); TODO: separately if given both (link and content)
         o (get-object data env)
         new-parent-o (if (and o (not= (type o) Literal)) o s)
@@ -172,9 +178,11 @@
                         completed-triples
                         (if o (lazy-cat
                                 (for [p ps] [s p o])
-                                (for [p revs] [o p s]))))
+                                (for [p revs] [o p s])))
+                        (if-let [v (data :vocab)]
+                          [[(IRI. (env :base)) rdfa:usesVocabulary (IRI. v)]]))
         ; TODO: if (data :inlist)
-        ;DEBUG:_ (println {:tag tag :incomplete incomplete})
+        ;DEBUG:_ (println {:tag (data :tag) :incomplete incomplete})
         env (cond
               (not-empty completed-triples) (assoc env :incomplete [])
               (and (not o) (or rels revs)) (assoc env :incomplete [rels revs])
