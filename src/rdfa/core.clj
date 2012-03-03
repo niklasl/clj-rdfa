@@ -140,7 +140,9 @@
                        (if (not new-pred)
                          (data :resource)))]
           (expand-curie s env)
-          (if (and (data :typeof) (not (data :resource)))
+          (if (and (data :typeof)
+                   (not new-pred)
+                   (not (data :resource)))
             (next-bnode)))
         (if (and new-pred (not-empty (env :incomplete)))
           (next-bnode)))))
@@ -153,8 +155,8 @@
     (Literal. (data :content)
               (or (if-let [dt (not-empty (data :datatype))] (to-node env dt))
                   (or (data :lang) (env :lang))))
-    (or (and (or (data :rel) (data :rev)) (data :resource))
-        (and (data :property) (data :typeof)))
+    (and (or (data :rel) (data :rev) (data :property))
+         (and (not (data :about)) (data :typeof)))
     (next-bnode)))
 
 (defn get-props-rels-revs-lists [data env]
