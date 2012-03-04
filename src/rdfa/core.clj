@@ -205,6 +205,7 @@
                                 (if (or new-s o-resource)
                                   (for [p (incomplete :list-ps)]
                                     [p [next-parent-o]]))))
+        merged-list-map (merge-list-maps (env :list-map) new-list-map)
         vocab-triples (if-let [v (data :vocab)]
                         [[(IRI. (env :base)) rdfa:usesVocabulary (IRI. v)]])
         env (cond
@@ -222,7 +223,7 @@
                         [:incomplete :list-ps] {})
               :else env)
         env (assoc env :parent-object next-parent-o)
-        env (assoc env :list-map new-list-map)]
+        env (assoc env :list-map merged-list-map)]
     [(lazy-cat type-triples
              completed-triples
              regular-triples
@@ -243,25 +244,22 @@
         child-results (reduce
                         (fn [{prev-env :env prev-triples :triples} child]
                           (let [{res-env :env
-                                 res-triples :triples} (visit-element child prev-env)
-                                merged-env (update-in prev-env [:list-map]
-                                             #(merge-list-maps %1
-                                               (:list-map res-env)))]
+                                 res-triples :triples} (visit-element child prev-env)]
                             {:triples (concat prev-triples res-triples)
-                             :env merged-env}))
+                             :env (assoc prev-env :list-map (:list-map res-env))}))
                         {:triples nil :env next-env}
                         (get-child-elements el))
-        child-list-map (get-in child-results [:env :list-map])
-        merged-next-env (assoc next-env :list-map child-list-map)
-        ; TODO: fix check for when list is originated here (this fails for deep nests)
         list-map (next-env :list-map)
-        parent-list-map (env :list-map)
+        merged-list-map (get-in child-results [:env :list-map])
         list-triples (apply concat
-                            (for [[p l] (merged-next-env :list-map)
-                                  :when (not-any? #(contains? %1 p)
-                                                  [list-map parent-list-map])]
-                              (gen-list-triples s p l)))]
-    {:env (if (not-empty list-triples) next-env merged-next-env)
+                            (for [[p l] merged-list-map
+                                  :when (not (contains? list-map p))]
+                              (gen-list-triples s p l)))
+        merged-next-env (if (empty? list-triples)
+                          (assoc next-env :list-map merged-list-map)
+                          next-env)
+        ]
+    {:env merged-next-env
      :triples (lazy-cat triples (:triples child-results) list-triples)}))
 
 (defn extract-triples
