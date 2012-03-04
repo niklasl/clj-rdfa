@@ -200,12 +200,12 @@
         regular-triples (if o (lazy-cat
                                 (for [p ps] [s p o])
                                 (for [p revs] [o p s])))
+        changed-parent-o (not= parent-o next-parent-o)
         new-list-map (into {} (lazy-cat
                                 (for [p list-ps] [p (if o [o] [])])
                                 (if (or new-s o-resource)
                                   (for [p (incomplete :list-ps)]
                                     [p [next-parent-o]]))))
-        merged-list-map (merge-list-maps (env :list-map) new-list-map)
         vocab-triples (if-let [v (data :vocab)]
                         [[(IRI. (env :base)) rdfa:usesVocabulary (IRI. v)]])
         env (cond
@@ -218,16 +218,16 @@
                      {:rels rels
                       :revs revs
                       :list-ps list-ps})
-              (not= parent-o next-parent-o)
+              changed-parent-o
               (assoc-in env
                         [:incomplete :list-ps] {})
               :else env)
         env (assoc env :parent-object next-parent-o)
-        env (assoc env :list-map merged-list-map)]
+        env (assoc env :list-map new-list-map)]
     [(lazy-cat type-triples
              completed-triples
              regular-triples
-             vocab-triples) env next-parent-o]))
+             vocab-triples) env]))
 
 (defn gen-list-triples [s p l]
   (loop [s s, p p, l l, triples nil]
@@ -239,27 +239,41 @@
                              [node rdf:first (first l)]])]
         (recur node rdf:rest (rest l) triples)))))
 
+(declare visit-element)
+
+(defn combine-element-visits [[prev-env prev-triples] child]
+  (let [{{res-list-map :list-map} :env
+         res-triples :triples} (visit-element child prev-env)]
+    [(if (empty? res-list-map) prev-env
+       (assoc prev-env :list-map res-list-map))
+     (concat prev-triples res-triples)]))
+
 (defn visit-element [el env]
-  (let [[triples next-env s] (next-state el env)
-        child-results (reduce
-                        (fn [{prev-env :env prev-triples :triples} child]
-                          (let [{res-env :env
-                                 res-triples :triples} (visit-element child prev-env)]
-                            {:triples (concat prev-triples res-triples)
-                             :env (assoc prev-env :list-map (:list-map res-env))}))
-                        {:triples nil :env next-env}
-                        (get-child-elements el))
+  (let [[triples next-env] (next-state el env)
+        s (next-env :parent-object)
+        changed-s (not= s (env :parent-object))
+        ;_ (if changed-s (println {:s s :n-l-m (:list-map next-env)}))
+        ; TODO: this can be too eager, but "fixed" by local-next-env
+        next-env (update-in next-env
+                              [:list-map] #(merge-list-maps (env :list-map) %1))
+        local-next-env (if changed-s (assoc next-env :list-map {}) next-env)
+        [{merged-list-map :list-map}
+         child-triples] (reduce
+                          combine-element-visits [local-next-env nil]
+                          (get-child-elements el))
         list-map (next-env :list-map)
-        merged-list-map (get-in child-results [:env :list-map])
         list-triples (apply concat
                             (for [[p l] merged-list-map
-                                  :when (not (contains? list-map p))]
+                                  :when (or changed-s (not (contains? list-map p)))]
                               (gen-list-triples s p l)))
-        merged-next-env (if (empty? list-triples)
+        merged-next-env (cond
+                          changed-s
+                          next-env
+                          (empty? list-triples)
                           (assoc next-env :list-map merged-list-map)
-                          next-env)]
+                          :else next-env)]
     {:env merged-next-env
-     :triples (lazy-cat triples (:triples child-results) list-triples)}))
+     :triples (lazy-cat triples child-triples list-triples)}))
 
 (defn extract-triples
   ([root base]
