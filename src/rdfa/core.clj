@@ -227,7 +227,7 @@
     [(lazy-cat type-triples
              completed-triples
              regular-triples
-             vocab-triples) env s]))
+             vocab-triples) env next-parent-o]))
 
 (defn gen-list-triples [s p l]
   (loop [s s, p p, l l, triples nil]
@@ -257,8 +257,7 @@
                               (gen-list-triples s p l)))
         merged-next-env (if (empty? list-triples)
                           (assoc next-env :list-map merged-list-map)
-                          next-env)
-        ]
+                          next-env)]
     {:env merged-next-env
      :triples (lazy-cat triples (:triples child-results) list-triples)}))
 
