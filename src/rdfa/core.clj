@@ -144,7 +144,7 @@
                    (not new-pred)
                    (not (data :resource)))
             (next-bnode)))
-        (if (and new-pred (not-empty (env :incomplete)))
+        (if (and new-pred (not-every? empty? (vals (env :incomplete))))
           (next-bnode)))))
 
 (defn get-object [data env]
@@ -208,12 +208,18 @@
         vocab-triples (if-let [v (data :vocab)]
                         [[(IRI. (env :base)) rdfa:usesVocabulary (IRI. v)]])
         env (cond
-              (not-empty completed-triples) (assoc env :incomplete {})
-              (and (not o)
-                   (or rels revs list-ps)) (assoc env :incomplete
-                                                  {:rels rels
-                                                   :revs revs
-                                                   :list-ps list-ps})
+              (not-empty completed-triples)
+              (assoc env
+                     :incomplete {})
+              (and (not o) (or rels revs list-ps))
+              (assoc env
+                     :incomplete
+                     {:rels rels
+                      :revs revs
+                      :list-ps list-ps})
+              (not= parent-o next-parent-o)
+              (assoc-in env
+                        [:incomplete :list-ps] {})
               :else env)
         env (assoc env :parent-object next-parent-o)
         env (assoc env :list-map new-list-map)]
@@ -247,6 +253,7 @@
                         (get-child-elements el))
         child-list-map (get-in child-results [:env :list-map])
         merged-next-env (assoc next-env :list-map child-list-map)
+        ; TODO: fix check for when list is originated here (this fails for deep nests)
         list-map (next-env :list-map)
         parent-list-map (env :list-map)
         list-triples (apply concat
