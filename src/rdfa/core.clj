@@ -168,17 +168,12 @@
       [nil nil revs (or props rels)]
       [props rels revs nil])))
 
-(defn merge-list-maps [map1 map2]
-  (into map1 (for [[p l2] map2]
-               [p (if-let [l1 (get map1 p)]
-                    (concat l1 l2)
-                    l2)])))
-
 (defn next-state [el env]
   (let [data (get-data el)
         env (update-env env data)
         parent-o (env :parent-object)
         incomplete (env :incomplete)
+        about (data :about)
         new-s (get-subject data env)
         s (or new-s parent-o)
         [props
@@ -190,7 +185,7 @@
         o-resource (and o (not= (type o) Literal))
         next-parent-o (if o-resource o s)
         types (if-let [expr (data :typeof)] (to-nodes env expr))
-        type-triples (let [ts (if (or (data :about) (not o)) s o)]
+        type-triples (let [ts (if (or about (not o)) s o)]
                        (for [t types] [ts rdf:type t]))
         completed-triples (if next-parent-o
                             (let [{rels :rels revs :revs} incomplete]
@@ -222,12 +217,19 @@
               (assoc-in env
                         [:incomplete :list-ps] {})
               :else env)
+        env (assoc env :about about)
         env (assoc env :parent-object next-parent-o)
         env (assoc env :list-map new-list-map)]
     [(lazy-cat type-triples
-             completed-triples
-             regular-triples
-             vocab-triples) env]))
+               completed-triples
+               regular-triples
+               vocab-triples) env]))
+
+(defn merge-list-maps [map1 map2]
+  (into map1 (for [[p l2] map2]
+               [p (if-let [l1 (get map1 p)]
+                    (concat l1 l2)
+                    l2)])))
 
 (defn gen-list-triples [s p l]
   (loop [s s, p p, l l, triples nil]
@@ -250,28 +252,30 @@
 
 (defn visit-element [el env]
   (let [[triples next-env] (next-state el env)
+        about (next-env :about)
         s (next-env :parent-object)
         changed-s (not= s (env :parent-object))
-        ;_ (if changed-s (println {:s s :n-l-m (:list-map next-env)}))
-        ; TODO: this can be too eager, but "fixed" by local-next-env
-        next-env (update-in next-env
-                              [:list-map] #(merge-list-maps (env :list-map) %1))
-        local-next-env (if changed-s (assoc next-env :list-map {}) next-env)
+        next-list-map (next-env :list-map)
+        inherited-list-map (merge-list-maps (env :list-map)
+                                            (if about {} next-list-map))
+        active-next-env (assoc next-env :list-map
+                               (if changed-s
+                                 (if about next-list-map {})
+                                 inherited-list-map))
         [{merged-list-map :list-map}
          child-triples] (reduce
-                          combine-element-visits [local-next-env nil]
+                          combine-element-visits [active-next-env nil]
                           (get-child-elements el))
-        list-map (next-env :list-map)
         list-triples (apply concat
                             (for [[p l] merged-list-map
-                                  :when (or changed-s (not (contains? list-map p)))]
+                                  :when (or changed-s
+                                            (not (contains? inherited-list-map p)))]
                               (gen-list-triples s p l)))
-        merged-next-env (cond
-                          changed-s
-                          next-env
-                          (empty? list-triples)
-                          (assoc next-env :list-map merged-list-map)
-                          :else next-env)]
+        merged-next-env (assoc next-env :list-map
+                               (cond
+                                 changed-s inherited-list-map
+                                 (empty? list-triples) merged-list-map
+                                 :else inherited-list-map))]
     {:env merged-next-env
      :triples (lazy-cat triples child-triples list-triples)}))
 
