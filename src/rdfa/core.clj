@@ -101,17 +101,19 @@
 
 (defn get-data [el]
   (let [attr #(get-attr el %1)
+        about (attr "about")
         property (attr "property")
         resource (or (attr "resource") (attr "href") (attr "src"))
         typeof (attr "typeof")
         datatype (attr "datatype")
         prefix-map (parse-prefix (attr "prefix"))
-        as-literal (and property (not (or typeof resource)))
+        ; TODO: in a hanging rel, use incomplete-subject as about here:
+        as-literal (and property (or about (not (or typeof resource))))
         as-xml (= datatype (:id rdf:XMLLiteral))]
     {:tag (.getNodeName el); :line-nr (... el)
      :prefix-map (merge (get-ns-map el) prefix-map)
      :vocab (attr "vocab")
-     :about (attr "about")
+     :about about
      :property property
      :rel (attr "rel")
      :rev (attr "rev")
@@ -147,17 +149,20 @@
         (if (and new-pred (not-every? empty? (vals (env :incomplete))))
           (next-bnode)))))
 
-(defn get-object [data env]
-  (cond
-    (data :resource)
-    (expand-curie (data :resource) env)
-    (data :content)
+(defn get-literal [data env]
+  (if (data :content)
     (Literal. (data :content)
               (or (if-let [dt (not-empty (data :datatype))] (to-node env dt))
-                  (or (data :lang) (env :lang))))
-    (and (or (data :rel) (data :rev) (data :property))
-         (and (not (data :about)) (data :typeof)))
-    (next-bnode)))
+                  (or (data :lang) (env :lang))))))
+
+(defn get-object [data env]
+   (cond
+    (data :resource)
+     (expand-curie
+       (data :resource) env)
+     (and (or (data :rel) (data :rev) (data :property))
+          (and (not (data :about)) (data :typeof)))
+     (next-bnode)))
 
 (defn get-props-rels-revs-lists [data env]
   (let [inlist (data :inlist)
@@ -168,11 +173,12 @@
       [nil nil revs (or props rels)]
       [props rels revs nil])))
 
-(defn next-state [el env]
+(defn next-state [el base-env]
   (let [data (get-data el)
-        env (update-env env data)
+        env (update-env base-env data)
         parent-o (env :parent-object)
         incomplete (env :incomplete)
+        ;TODO: :incomplete-subject
         about (data :about)
         new-s (get-subject data env)
         s (or new-s parent-o)
@@ -180,21 +186,27 @@
          rels
          revs
          list-ps] (get-props-rels-revs-lists data env)
-        ps (concat props rels); TODO: separately if given both (link and content)
-        o (get-object data env)
-        o-resource (and o (not= (type o) Literal))
-        next-parent-o (if o-resource o s)
+        o-resource (get-object data env)
+        o-literal (get-literal data env)
+        next-parent-o (or o-resource s)
+        regular-triples (lazy-cat
+                          (if o-literal
+                            (for [p props] [s p o-literal]))
+                          (if o-resource
+                            (lazy-cat (for [p (if o-literal rels
+                                                (concat props rels))]
+                                        [s p o-resource])
+                                      (for [p revs] [o-resource p s]))))
         types (if-let [expr (data :typeof)] (to-nodes env expr))
-        type-triples (let [ts (if (or about (not o)) s o)]
+        type-triples (let [ts (if (or about (not o-resource)) s o-resource)]
                        (for [t types] [ts rdf:type t]))
         completed-triples (if next-parent-o
                             (let [{rels :rels revs :revs} incomplete]
                               (lazy-cat
                                 (for [rel rels] [parent-o rel next-parent-o])
                                 (for [rev revs] [next-parent-o rev parent-o]))))
-        regular-triples (if o (lazy-cat
-                                (for [p ps] [s p o])
-                                (for [p revs] [o p s])))
+        ; TODO: list-rels and list-props (for inlist with both o-l and o-r)
+        o (or o-resource o-literal)
         new-list-map (into {} (lazy-cat
                                 (for [p list-ps] [p (if o [o] [])])
                                 (if (or new-s o-resource)
