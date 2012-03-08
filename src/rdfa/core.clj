@@ -93,6 +93,7 @@
      {:base base
       :parent-object (IRI. base)
       :incomplete {}
+      :incomplete-subject nil
       :list-map {}
       :lang nil
       :prefix-map prefix-map
@@ -107,7 +108,6 @@
         typeof (attr "typeof")
         datatype (attr "datatype")
         prefix-map (parse-prefix (attr "prefix"))
-        ; TODO: in a hanging rel, use incomplete-subject as about here:
         as-literal (and property (or about (not (or typeof resource))))
         as-xml (= datatype (:id rdf:XMLLiteral))]
     {:tag (.getNodeName el); :line-nr (... el)
@@ -145,9 +145,7 @@
           (if (and (data :typeof)
                    (not new-pred)
                    (not (data :resource)))
-            (next-bnode)))
-        (if (and new-pred (not-every? empty? (vals (env :incomplete))))
-          (next-bnode)))))
+            (next-bnode))))))
 
 (defn get-literal [data env]
   (if (data :content)
@@ -156,13 +154,22 @@
                   (or (data :lang) (env :lang))))))
 
 (defn get-object [data env]
-   (cond
+  (cond
     (data :resource)
-     (expand-curie
-       (data :resource) env)
-     (and (or (data :rel) (data :rev) (data :property))
-          (and (not (data :about)) (data :typeof)))
-     (next-bnode)))
+    (expand-curie
+      (data :resource) env)
+    (or
+      (and (or (data :rel) (data :rev))
+           (not (data :about)) (data :typeof))
+      (and (data :property) (not (data :content)) (data :typeof)))
+    (next-bnode)))
+
+(defn get-hanging [data]
+  (if (and (or (data :rel) (data :rev))
+           (not (data :resource))
+           (or (data :about) (not (data :typeof)))
+           (not (data :inlist)))
+    (next-bnode)))
 
 (defn get-props-rels-revs-lists [data env]
   (let [inlist (data :inlist)
@@ -178,17 +185,30 @@
         env (update-env base-env data)
         parent-o (env :parent-object)
         incomplete (env :incomplete)
-        ;TODO: :incomplete-subject
+        incomplete-s (env :incomplete-subject)
         about (data :about)
         new-s (get-subject data env)
-        s (or new-s parent-o)
         [props
          rels
          revs
          list-ps] (get-props-rels-revs-lists data env)
         o-resource (get-object data env)
         o-literal (get-literal data env)
+        types (if-let [typeof (data :typeof)] (to-nodes env typeof))
+        ps (or rels revs props)
+        completing-s (or new-s (if ps incomplete-s) o-resource)
+        s (or new-s (if ps incomplete-s) parent-o)
+        o (or o-resource o-literal)
         next-parent-o (or o-resource s)
+        next-incomplete-s (if (not ps)
+                            incomplete-s
+                            (get-hanging data))
+        ; TODO: list-rels and list-props (for inlist with both o-l and o-r)
+        new-list-map (into {} (lazy-cat
+                                (for [p list-ps] [p (if o [o] [])])
+                                (if (or new-s o-resource)
+                                  (for [p (incomplete :list-ps)]
+                                    [p [next-parent-o]]))))
         regular-triples (lazy-cat
                           (if o-literal
                             (for [p props] [s p o-literal]))
@@ -197,40 +217,29 @@
                                                 (concat props rels))]
                                         [s p o-resource])
                                       (for [p revs] [o-resource p s]))))
-        types (if-let [expr (data :typeof)] (to-nodes env expr))
         type-triples (let [ts (if (or about (not o-resource)) s o-resource)]
                        (for [t types] [ts rdf:type t]))
-        completed-triples (if next-parent-o
+        completed-triples (if completing-s
                             (let [{rels :rels revs :revs} incomplete]
                               (lazy-cat
-                                (for [rel rels] [parent-o rel next-parent-o])
-                                (for [rev revs] [next-parent-o rev parent-o]))))
-        ; TODO: list-rels and list-props (for inlist with both o-l and o-r)
-        o (or o-resource o-literal)
-        new-list-map (into {} (lazy-cat
-                                (for [p list-ps] [p (if o [o] [])])
-                                (if (or new-s o-resource)
-                                  (for [p (incomplete :list-ps)]
-                                    [p [next-parent-o]]))))
+                                (for [rel rels] [parent-o rel completing-s])
+                                (for [rev revs] [completing-s rev parent-o]))))
         vocab-triples (if-let [v (data :vocab)]
                         [[(IRI. (env :base)) rdfa:usesVocabulary (IRI. v)]])
-        env (cond
-              (not-empty completed-triples)
-              (assoc env
-                     :incomplete {})
-              (and (not o) (or rels revs list-ps))
-              (assoc env
-                     :incomplete
-                     {:rels rels
-                      :revs revs
-                      :list-ps list-ps})
-              (not= parent-o next-parent-o)
-              (assoc-in env
-                        [:incomplete :list-ps] {})
-              :else env)
-        env (assoc env :about about)
-        env (assoc env :parent-object next-parent-o)
-        env (assoc env :list-map new-list-map)]
+        next-incomplete (cond
+                          (and (or rels revs list-ps) (not o))
+                          {:rels rels :revs revs :list-ps list-ps}
+                          (not-empty completed-triples) {}
+                          :else incomplete)
+        env (assoc env
+                   :incomplete next-incomplete
+                   :incomplete-subject next-incomplete-s
+                   :about about
+                   :parent-object next-parent-o
+                   :list-map new-list-map)
+        env (if (not= parent-o next-parent-o)
+              (assoc-in env [:incomplete :list-ps] {})
+              env)]
     [env
      (lazy-cat type-triples
                completed-triples
