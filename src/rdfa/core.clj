@@ -138,14 +138,14 @@
 
 (defn get-subject [data env]
   (let [new-pred (or (data :rel) (data :rev) (data :property))]
-    (or (if-let [s (or (data :about)
-                       (if (not new-pred)
-                         (data :resource)))]
-          (expand-curie s env)
-          (if (and (data :typeof)
-                   (not new-pred)
-                   (not (data :resource)))
-            (next-bnode))))))
+    (if-let [s (or (data :about)
+                   (if (not new-pred)
+                     (data :resource)))]
+      (expand-curie s env)
+      (if (and (data :typeof)
+               (not new-pred)
+               (not (data :resource)))
+        (next-bnode)))))
 
 (defn get-literal [data env]
   (if (data :content)
@@ -200,7 +200,7 @@
         s (or new-s (if ps incomplete-s) parent-o)
         o (or o-resource o-literal)
         next-parent-o (or o-resource s)
-        next-incomplete-s (if (not ps)
+        next-incomplete-s (if (not (or new-s ps))
                             incomplete-s
                             (get-hanging data))
         ; TODO: list-rels and list-props (for inlist with both o-l and o-r)
