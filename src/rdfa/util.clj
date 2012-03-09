@@ -6,7 +6,7 @@
   (condp = (type term)
     IRI (str "<" (:id term) ">")
     Literal (let [{value :value tag :tag} term
-                  qt (if (> (.indexOf value "\n") -1) "\"\"\"", \")]
+                  qt (if (re-find #"\n|\"" value) "\"\"\"", \")]
               (str qt value qt
                    (cond
                      (= (type tag) IRI) (str "^^" (repr-term tag))
