@@ -11,7 +11,9 @@
                    (cond
                      (= (type tag) IRI) (str "^^" (repr-term tag))
                      (not-empty tag) (str "@" tag))))
-    BNode (str "_:" (:id term))))
+    BNode (str "_:" (:id term))
+    (throw (IllegalArgumentException.
+             (str "Cannot repr term: " term "(type: " (type term) ")")))))
 
 (defn repr-triple [[s p o]]
   (str (repr-term s) " " (repr-term p) " " (repr-term o) " ."))
