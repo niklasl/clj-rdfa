@@ -104,11 +104,6 @@
 
 (defn get-data [el]
   (let [attr #(get-attr el %1)
-        about (attr "about")
-        property (attr "property")
-        resource (or (attr "resource") (attr "href") (attr "src"))
-        typeof (attr "typeof")
-        datatype (attr "datatype")
         xmlns-map (get-ns-map el)
         prefix-map (parse-prefix (attr "prefix"))]
     {;:tag (.getNodeName el) :line-nr (... el)
@@ -116,16 +111,16 @@
                  (assoc xmlns-map nil xmlns) xmlns-map)
      :prefix-map (merge xmlns-map prefix-map)
      :vocab (attr "vocab")
-     :about about
-     :property property
+     :about (attr "about")
+     :property (attr "property")
      :rel (attr "rel")
      :rev (attr "rev")
-     :resource resource
-     :typeof typeof
+     :resource (or (attr "resource") (attr "href") (attr "src"))
+     :typeof (attr "typeof")
      :inlist (attr "inlist")
      :lang (or (attr "lang") (attr "xml:lang"))
      :content (attr "content")
-     :datatype datatype}))
+     :datatype (attr "datatype")}))
 
 (defn update-mappings [env data]
   (let [env (if-let [lang (data :lang)]
@@ -198,9 +193,6 @@
 (defn next-state [el base-env]
   (let [data (get-data el)
         env (update-mappings base-env data)
-        parent-o (env :parent-object)
-        incomplete (env :incomplete)
-        incomplete-s (env :incomplete-subject)
         about (data :about)
         new-s (get-subject data env)
         [props
@@ -210,6 +202,9 @@
         o-resource (get-object data env)
         o-literal (get-literal el data env)
         types (if-let [typeof (data :typeof)] (to-nodes env typeof))
+        parent-o (env :parent-object)
+        incomplete-s (env :incomplete-subject)
+        incomplete (env :incomplete)
         ps (or rels revs props)
         completing-s (or new-s (if ps incomplete-s) o-resource)
         s (or new-s (if ps incomplete-s) parent-o)

@@ -37,18 +37,16 @@
           ser (.. doc (getImplementation) (createLSSerializer))]
       (doto (.getDomConfig ser)
         (.setParameter "xml-declaration" false))
-      (doseq [node (node-list (.getChildNodes this))]
-        (let [node (.cloneNode node true)]
-          (.appendChild frag
-                        (if (= (.getNodeType node) Node/ELEMENT_NODE)
-                          (do
-                            (if (not-empty lang)
-                              (.setAttribute node "xml:lang" lang))
-                            (doseq [[pfx iri] xmlns-map]
-                              (let [qname (str "xmlns" (if pfx \:) pfx)]
-                                (.setAttribute node qname iri)))
-                            node)
-                          node))))
+      (doseq [node (node-list (.getChildNodes this))
+              :let [node (.cloneNode node true)]]
+        (if (= (.getNodeType node) Node/ELEMENT_NODE)
+          (do
+            (if (not-empty lang)
+              (.setAttribute node "xml:lang" lang))
+            (doseq [[pfx iri] xmlns-map]
+              (let [qname (str "xmlns" (if pfx \:) pfx)]
+                (.setAttribute node qname iri)))))
+        (.appendChild frag node))
       (.writeToString ser frag))))
 
 (defn extract-rdf [source]
