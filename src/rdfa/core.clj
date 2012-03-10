@@ -7,7 +7,8 @@
   (get-attr [this attr-name])
   (get-ns-map [this])
   (get-child-elements [this])
-  (get-content [this as-xml]))
+  (get-text [this])
+  (get-inner-xml [this xmlns-map lang]))
 
 
 (defrecord BNode [id])
@@ -96,6 +97,7 @@
       :incomplete-subject nil
       :list-map {}
       :lang nil
+      :xmlns-map nil
       :prefix-map prefix-map
       :term-map term-map
       :vocab vocab})))
@@ -107,11 +109,12 @@
         resource (or (attr "resource") (attr "href") (attr "src"))
         typeof (attr "typeof")
         datatype (attr "datatype")
-        prefix-map (parse-prefix (attr "prefix"))
-        as-literal (and property (or about (not (or typeof resource))))
-        as-xml (= datatype (:id rdf:XMLLiteral))]
-    {:tag (.getNodeName el); :line-nr (... el)
-     :prefix-map (merge (get-ns-map el) prefix-map)
+        xmlns-map (get-ns-map el)
+        prefix-map (parse-prefix (attr "prefix"))]
+    {;:tag (.getNodeName el) :line-nr (... el)
+     :xmlns-map (if-let [xmlns (attr "xmlns")]
+                 (assoc xmlns-map nil xmlns) xmlns-map)
+     :prefix-map (merge xmlns-map prefix-map)
      :vocab (attr "vocab")
      :about about
      :property property
@@ -120,15 +123,16 @@
      :resource resource
      :typeof typeof
      :inlist (attr "inlist")
-     :content (or (attr "content")
-                  (if as-literal (get-content el as-xml)))
      :lang (or (attr "lang") (attr "xml:lang"))
+     :content (attr "content")
      :datatype datatype}))
 
-(defn update-env [env data]
+(defn update-mappings [env data]
   (let [env (if-let [lang (data :lang)]
               (assoc env :lang lang)
               env)
+        env (update-in env [:xmlns-map]
+                       #(merge %1 (data :xmlns-map)))
         env (update-in env [:prefix-map]
                        #(merge %1 (data :prefix-map)))
         env (if-let [vocab (data :vocab)]
@@ -147,11 +151,22 @@
                (not (data :resource)))
         (next-bnode)))))
 
-(defn get-literal [data env]
-  (if (data :content)
-    (Literal. (data :content)
-              (or (if-let [dt (not-empty (data :datatype))] (to-node env dt))
-                  (or (data :lang) (env :lang))))))
+(defn get-literal [el data env]
+  (let [as-literal (and (data :property)
+                        (not (or (data :resource)
+                                 (and (data :typeof)
+                                      (not (data :about))))))
+        datatype (if-let [dt (not-empty (data :datatype))]
+                   (to-node env dt))
+        as-xml (= datatype rdf:XMLLiteral)
+        repr (or (data :content)
+                 (if as-literal (if as-xml
+                                  (get-inner-xml el (env :xmlns-map) (env :lang))
+                                  (get-text el))))]
+    (if repr
+      (Literal. repr
+                (or datatype
+                    (or (data :lang) (env :lang)))))))
 
 (defn get-object [data env]
   (cond
@@ -182,7 +197,7 @@
 
 (defn next-state [el base-env]
   (let [data (get-data el)
-        env (update-env base-env data)
+        env (update-mappings base-env data)
         parent-o (env :parent-object)
         incomplete (env :incomplete)
         incomplete-s (env :incomplete-subject)
@@ -193,7 +208,7 @@
          revs
          list-ps] (get-props-rels-revs-lists data env)
         o-resource (get-object data env)
-        o-literal (get-literal data env)
+        o-literal (get-literal el data env)
         types (if-let [typeof (data :typeof)] (to-nodes env typeof))
         ps (or rels revs props)
         completing-s (or new-s (if ps incomplete-s) o-resource)

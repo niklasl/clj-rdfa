@@ -25,13 +25,31 @@
   (get-child-elements [this]
     (filter #(= (.getNodeType %1) Node/ELEMENT_NODE)
             (node-list (.getChildNodes this))))
-  (get-content [this as-xml]
-    ; TODO: support as-xml
+  (get-text [this]
     (letfn [(get-values [node]
               (cons (if (= (.getNodeType node) Node/TEXT_NODE)
                       (.getNodeValue node))
                     (map get-values (node-list (.getChildNodes node)))))]
-      (clojure.string/join (flatten (get-values this))))))
+      (clojure.string/join (flatten (get-values this)))))
+  (get-inner-xml [this xmlns-map lang]
+    (let [doc (.getOwnerDocument this)
+          frag (.createDocumentFragment doc)
+          ser (.. doc (getImplementation) (createLSSerializer))]
+      (doto (.getDomConfig ser)
+        (.setParameter "xml-declaration" false))
+      (doseq [node (node-list (.getChildNodes this))]
+        (let [node (.cloneNode node true)]
+          (.appendChild frag
+                        (if (= (.getNodeType node) Node/ELEMENT_NODE)
+                          (do
+                            (if (not-empty lang)
+                              (.setAttribute node "xml:lang" lang))
+                            (doseq [[pfx iri] xmlns-map]
+                              (let [qname (str "xmlns" (if pfx \:) pfx)]
+                                (.setAttribute node qname iri)))
+                            node)
+                          node))))
+      (.writeToString ser frag))))
 
 (defn extract-rdf [source]
   (let [root (.getDocumentElement (dom-parse source))
