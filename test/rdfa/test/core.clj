@@ -4,50 +4,50 @@
   (:import [rdfa.core IRI Literal BNode]))
 
 
-(fact (:base (init-env "path#frag" nil nil nil))
+(fact (:base (init-env "path#frag" {}))
       => "path")
 
 
 (def env (init-env "./"
-                   {"ns" "http://example.org/ns#"}
-                   {"role" "http://example.org/ns#role"}
-                   nil))
+                   {:prefix-map {"ns" "http://example.org/ns#"}
+                    :term-map {"role" "http://example.org/ns#role"}
+                    :vocab nil}))
 
 (def env-w-vocab (assoc env :vocab "http://example.org/vocab#"))
 
 (facts
 
-  (expand-term-or-curie "ns:name" env)
+  (expand-term-or-curie env "ns:name")
   => (IRI. "http://example.org/ns#name")
 
-  (expand-term-or-curie "ns:name:first" env)
+  (expand-term-or-curie env "ns:name:first")
   => (IRI. "http://example.org/ns#name:first")
 
-  (expand-term-or-curie "ns:/name" env)
+  (expand-term-or-curie env "ns:/name")
   => (IRI. "http://example.org/ns#/name")
 
-  (expand-term-or-curie "ns://name" env)
+  (expand-term-or-curie env "ns://name")
   => (IRI. "ns://name")
 
-  (expand-term-or-curie "[ns:name]" env)
+  (expand-term-or-curie env "[ns:name]")
   => (IRI. "http://example.org/ns#name")
 
-  (expand-term-or-curie "_:a" env)
+  (expand-term-or-curie env "_:a")
   => (BNode. "a")
 
-  (expand-term-or-curie "role" env)
+  (expand-term-or-curie env "role")
   => (IRI. "http://example.org/ns#role")
 
-  (expand-term-or-curie "other" env)
+  (expand-term-or-curie env "other")
   => (IRI. "other")
 
-  (expand-term-or-curie "role" env-w-vocab)
+  (expand-term-or-curie env-w-vocab "role")
   => (IRI. "http://example.org/vocab#role")
 
-  (expand-term-or-curie "other" env-w-vocab)
+  (expand-term-or-curie env-w-vocab "other")
   => (IRI. "http://example.org/vocab#other")
 
-  (expand-curie "other" env-w-vocab)
+  (expand-curie env-w-vocab "other")
   => (IRI. "other") )
 
 

@@ -19,7 +19,7 @@
                         </body>
                        </html>")
            (GET "/extract" [url]
-                 (let [triples (extract-rdf url)
+                 (let [{triples :triples} (get-rdfa url)
                        turtle-result (string/join "\n"
                                                   (map repr-triple triples))]
                    {:status 200

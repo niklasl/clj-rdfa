@@ -1,6 +1,6 @@
 (ns rdfa.stddom
   (:gen-class)
-  (:require (rdfa core util))
+  (:require (rdfa dom core util))
   (:import [javax.xml.parsers DocumentBuilderFactory]
            [org.w3c.dom Node]))
 
@@ -14,7 +14,9 @@
       (recur (dec index) (cons (.item nl index) nodes)))))
 
 (extend-type Node
-  rdfa.core/DomAccess
+  rdfa.dom/DomAccess
+  (get-name [this]
+    (.getNodeName this))
   (get-attr [this attr-name]
     (if (.hasAttribute this attr-name) (.getAttribute this attr-name)))
   (get-ns-map [this]
@@ -22,6 +24,8 @@
           (for [attr (node-list (.getAttributes this))
                 :when (.. attr (getNodeName) (startsWith "xmlns:"))]
             [(.. attr (getNodeName) (substring 6)) (.getValue attr)])))
+  (is-root? [this]
+    (.isSameNode this (.. this (getOwnerDocument) (getDocumentElement))))
   (find-by-tag [this tag]
     (node-list (.getElementsByTagName this tag)))
   (get-child-elements [this]
@@ -51,17 +55,16 @@
         (.appendChild frag node))
       (.writeToString ser frag))))
 
-(defn extract-rdf [uri]
-  (let [root (.getDocumentElement (dom-parse uri))
-        base (or (if-let [el (first (rdfa.core/find-by-tag root "base"))]
-                   (rdfa.core/get-attr el "href"))
-                 uri)]
-    (rdfa.core/extract-triples root base)))
+(defn get-rdfa [location]
+  (let [root (.getDocumentElement (dom-parse location))
+        ; TODO: detect host language (from mime-type, suffix, doctype, xmlns...)
+        profile :xml]
+    (rdfa.core/extract-rdfa profile root location)))
 
 (defn -main [& args]
   (doseq [path args]
-    (let [uri (.. (java.net.URI. path) (toString))
-          triples (extract-rdf uri)]
+    (let [location (.. (java.net.URI. path) (toString))
+          {env :env triples :triples} (get-rdfa location)]
       (doseq [triple triples]
         (-> triple rdfa.util/repr-triple println)))))
 
