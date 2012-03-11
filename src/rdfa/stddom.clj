@@ -22,6 +22,8 @@
           (for [attr (node-list (.getAttributes this))
                 :when (.. attr (getNodeName) (startsWith "xmlns:"))]
             [(.. attr (getNodeName) (substring 6)) (.getValue attr)])))
+  (find-by-tag [this tag]
+    (node-list (.getElementsByTagName this tag)))
   (get-child-elements [this]
     (filter #(= (.getNodeType %1) Node/ELEMENT_NODE)
             (node-list (.getChildNodes this))))
@@ -49,17 +51,17 @@
         (.appendChild frag node))
       (.writeToString ser frag))))
 
-(defn extract-rdf [source]
-  (let [root (.getDocumentElement (dom-parse source))
-        baseElems (.getElementsByTagName root "base")
-        base (or (if (> (.getLength baseElems) 0)
-                   (not-empty (.getAttribute (.item baseElems 0) "href")))
-                 (.. (java.net.URI. source) (toString)))]
+(defn extract-rdf [uri]
+  (let [root (.getDocumentElement (dom-parse uri))
+        base (or (if-let [el (first (rdfa.core/find-by-tag root "base"))]
+                   (rdfa.core/get-attr el "href"))
+                 uri)]
     (rdfa.core/extract-triples root base)))
 
 (defn -main [& args]
   (doseq [path args]
-    (let [triples (extract-rdf path)]
+    (let [uri (.. (java.net.URI. path) (toString))
+          triples (extract-rdf uri)]
       (doseq [triple triples]
         (-> triple rdfa.util/repr-triple println)))))
 
