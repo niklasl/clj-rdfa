@@ -109,6 +109,7 @@
                   (assoc xmlns-map nil xmlns) xmlns-map)
      :prefix-map (merge xmlns-map prefix-map)
      :vocab (attr "vocab")
+     :base (attr "xml:base")
      :about (attr "about")
      :property (attr "property")
      :rel (attr "rel")
@@ -121,15 +122,18 @@
      :datatype (attr "datatype")}))
 
 (defn update-mappings [env data]
-  (let [env (if-let [lang (data :lang)]
-              (assoc env :lang lang)
-              env)
-        env (update-in env [:xmlns-map]
+  (let [env (update-in env [:xmlns-map]
                        #(merge %1 (data :xmlns-map)))
         env (update-in env [:prefix-map]
                        #(merge %1 (data :prefix-map)))
         env (if-let [vocab (data :vocab)]
               (assoc env :vocab vocab)
+              env)
+        env (if-let [base (data :base)]
+              (assoc env :base base)
+              env)
+        env (if-let [lang (data :lang)]
+              (assoc env :lang lang)
               env)]
     env))
 
