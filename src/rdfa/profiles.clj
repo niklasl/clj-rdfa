@@ -65,6 +65,10 @@
     :vocab nil}})
 
 ; TODO:
+;(defn detect-host-language [mime-type doctype suffix xmlns]
+;  :xml)
+
+; TODO:
 ; - combine contexts
 ; - vary functions by profile
 ; - extended-env as well? to set base from @xml:base

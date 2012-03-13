@@ -18,37 +18,37 @@
 (facts
 
   (expand-term-or-curie env "ns:name")
-  => (IRI. "http://example.org/ns#name")
+  => [(IRI. "http://example.org/ns#name") nil]
 
   (expand-term-or-curie env "ns:name:first")
-  => (IRI. "http://example.org/ns#name:first")
+  => [(IRI. "http://example.org/ns#name:first") nil]
 
   (expand-term-or-curie env "ns:/name")
-  => (IRI. "http://example.org/ns#/name")
+  => [(IRI. "http://example.org/ns#/name") nil]
 
   (expand-term-or-curie env "ns://name")
-  => (IRI. "ns://name")
+  => [nil {:malformed-curie "ns://name"}]
 
   (expand-term-or-curie env "[ns:name]")
-  => (IRI. "http://example.org/ns#name")
+  => [(IRI. "http://example.org/ns#name") nil]
 
   (expand-term-or-curie env "_:a")
-  => (BNode. "a")
+  => [(BNode. "a") nil]
 
   (expand-term-or-curie env "role")
-  => (IRI. "http://example.org/ns#role")
+  => [(IRI. "http://example.org/ns#role") nil]
 
   (expand-term-or-curie env "other")
-  => (IRI. "other")
+  => [nil {:undefined-term "other"}]
 
   (expand-term-or-curie env-w-vocab "role")
-  => (IRI. "http://example.org/vocab#role")
+  => [(IRI. "http://example.org/vocab#role") nil]
 
   (expand-term-or-curie env-w-vocab "other")
-  => (IRI. "http://example.org/vocab#other")
+  => [(IRI. "http://example.org/vocab#other") nil]
 
-  (expand-curie env-w-vocab "other")
-  => (IRI. "other") )
+  (to-curie-or-iri env-w-vocab "other")
+  => [(IRI. "other") nil] )
 
 
 (facts

@@ -1,6 +1,6 @@
 (ns rdfa.stddom
   (:gen-class)
-  (:require (rdfa dom core util))
+  (:require (rdfa dom core repr))
   (:import [javax.xml.parsers DocumentBuilderFactory]
            [org.w3c.dom Node]))
 
@@ -56,15 +56,24 @@
       (.writeToString ser frag))))
 
 (defn get-rdfa [location]
-  (let [root (.getDocumentElement (dom-parse location))
-        ; TODO: detect host language (from mime-type, suffix, doctype, xmlns...)
-        profile :xml]
-    (rdfa.core/extract-rdfa profile root location)))
+  (try (let [root (.getDocumentElement (dom-parse location))
+             ; TODO: (detect-host-language mime-type, suffix, doctype, xmlns)
+             profile :xml]
+         (rdfa.core/extract-rdfa profile root location))
+    (catch Exception e
+      (rdfa.core/error-results (.getMessage e) "en"))))
+
+(defn print-triples [triples]
+  (doseq [triple triples]
+    (-> triple rdfa.repr/repr-triple println)))
 
 (defn -main [& args]
   (doseq [path args]
     (let [location (.. (java.net.URI. path) (toString))
-          {env :env triples :triples} (get-rdfa location)]
-      (doseq [triple triples]
-        (-> triple rdfa.util/repr-triple println)))))
+          {env :env
+           triples :triples
+           proc-triples :proc-triples} (get-rdfa location)]
+      (do
+        (print-triples triples)
+        (print-triples proc-triples)))))
 

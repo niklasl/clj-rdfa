@@ -1,6 +1,6 @@
-(ns rdfa.test.util
+(ns rdfa.test.repr
   (:use midje.sweet)
-  (:use [rdfa.util] :reload)
+  (:use [rdfa.repr] :reload)
   (:import [rdfa.core IRI Literal BNode]))
 
 

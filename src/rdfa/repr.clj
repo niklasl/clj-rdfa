@@ -1,4 +1,4 @@
-(ns rdfa.util
+(ns rdfa.repr
   (:import [rdfa.core IRI Literal BNode]))
 
 

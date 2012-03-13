@@ -1,7 +1,7 @@
 (ns rdfa.web
   (:use compojure.core
         rdfa.stddom
-        rdfa.util)
+        rdfa.repr)
   (:require [clojure.string :as string]
             [compojure.route :as route]
             [compojure.handler :as handler]))
@@ -18,10 +18,15 @@
                           </form>
                         </body>
                        </html>")
-           (GET "/extract" [url]
-                 (let [{triples :triples} (get-rdfa url)
-                       turtle-result (string/join "\n"
-                                                  (map repr-triple triples))]
+           (GET "/extract" [url rdfagraph]
+                 (let [{triples :triples
+                        proc-triples :proc-triples} (get-rdfa url)
+                       result-triples (if (= rdfagraph "processor")
+                                        proc-triples
+                                        triples)
+                       turtle-result (string/join
+                                       "\n"
+                                       (map repr-triple result-triples))]
                    {:status 200
                     :headers {"Content-Type" "text/plain; charset=utf-8"}
                     :body turtle-result}))
