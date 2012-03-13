@@ -231,16 +231,16 @@
   (let [[subject types o-resource o-literal
          props rels revs list-ps
          env data errs] (parse-element parent-env el)
-        about (data :about)
         parent-o (env :parent-object)
         incomplete-s (env :incomplete-subject)
         incomplete (env :incomplete)
-        ps (or rels revs props)
-        completing-s (or subject (if ps incomplete-s) o-resource)
-        active-s (or subject (if ps incomplete-s) parent-o)
+        has-about (data :about)
+        has-p (or (data :property) (data :rel) (data :rev))
+        completing-s (or subject (if has-p incomplete-s) o-resource)
+        active-s (or subject (if has-p incomplete-s) parent-o)
         active-o (or o-resource o-literal)
         next-parent-o (or o-resource active-s)
-        next-incomplete-s (if (not (or subject ps))
+        next-incomplete-s (if (not (or subject has-p))
                             incomplete-s
                             (get-hanging data))
         ; TODO: list-rels and list-props (for inlist with both o-l and o-r)
@@ -257,7 +257,7 @@
                                                 (concat props rels))]
                                         [active-s p o-resource])
                                       (for [p revs] [o-resource p active-s]))))
-        type-triples (let [ts (if (or about (not o-resource))
+        type-triples (let [ts (if (or has-about (not o-resource))
                                 active-s o-resource)]
                        (for [t types] [ts rdf:type t]))
         completed-triples (if completing-s
@@ -312,16 +312,16 @@
 
 (defn visit-element [parent-env el]
   (let [[env data triples proc-triples] (process-element parent-env el)
-        about (data :about)
+        has-about (data :about)
         s (env :parent-object)
         changed-s (not= s (parent-env :parent-object))
         new-list-map (env :list-map)
         current-list-map (merge-with concat
                                      (parent-env :list-map)
-                                     (if about {} new-list-map))
+                                     (if has-about {} new-list-map))
         local-env (assoc env :list-map
                          (if changed-s
-                           (if about new-list-map {})
+                           (if has-about new-list-map {})
                            current-list-map))
         [{combined-list-map :list-map}
          child-triples
