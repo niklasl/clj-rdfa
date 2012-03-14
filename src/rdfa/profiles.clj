@@ -64,28 +64,43 @@
                "p3pv1" "http://www.w3.org/1999/xhtml/vocab#p3pv1"}
     :vocab nil}})
 
-; TODO:
-;(defn detect-host-language [mime-type doctype suffix xmlns]
-;  :xml)
+; TODO: combine contexts properly!
+(def contexts
+  (assoc-in contexts [:xhtml :prefix-map]
+            (get-in contexts [:xml :prefix-map])))
+
+(def contexts
+  (update-in contexts [:xhtml :term-map]
+             #(merge (get-in contexts [:xml :term-map] %1))))
+
+
+(defn detect-host-language [&{:keys [location mime-type doctype xmlns]}]
+  ; TODO: add support for the other options
+  (if (or (.endsWith location ".html")
+          (.endsWith location ".xhtml")) :xhtml
+    :xml))
+
 
 ; TODO:
-; - combine contexts
-; - vary functions by profile
-; - extended-env as well? to set base from @xml:base
+; - vary these functions by profile
 
 (defn get-host-env [profile root]
   (let [base (if-let [el (first (dom/find-by-tag root "base"))]
                (dom/get-attr el "href"))
         context (contexts profile)]
     (assoc context
+           :profile profile
            :base base)))
 
 ; TODO: :content and :datatype from @datetime for html5
 
 (defn extended-data [env data]
-  (let [el (data :element)
+  (let [profile (env :profile)
+        el (data :element)
         tag (dom/get-name el)]
     (assoc data
+           :base (if (= profile :xhtml) nil
+                   (dom/get-attr el "xml:base"))
            :lang (or (data :lang) (dom/get-attr el "lang"))
            :about (or (data :about)
                       (if (and (or (= tag "head") (= tag "body"))

@@ -1,6 +1,6 @@
 (ns rdfa.stddom
   (:gen-class)
-  (:require (rdfa dom core repr))
+  (:require (rdfa dom profiles core repr))
   (:import [javax.xml.parsers DocumentBuilderFactory]
            [org.w3c.dom Node]))
 
@@ -57,8 +57,7 @@
 
 (defn get-rdfa [location]
   (try (let [root (.getDocumentElement (dom-parse location))
-             ; TODO: (detect-host-language mime-type, suffix, doctype, xmlns)
-             profile :xml]
+             profile (rdfa.profiles/detect-host-language :location location)]
          (rdfa.core/extract-rdfa profile root location))
     (catch Exception e
       (rdfa.core/error-results (.getMessage e) "en"))))
@@ -75,5 +74,6 @@
            proc-triples :proc-triples} (get-rdfa location)]
       (do
         (print-triples triples)
+        ; TODO: only if --proc in args
         (print-triples proc-triples)))))
 
