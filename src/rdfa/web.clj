@@ -16,13 +16,13 @@
                  </head>
                   <body>
                     <h1>(use 'rdfa)</h1>
-                    <form action='extract' method='GET'>
+                    <form action='extract.txt' method='GET'>
                       (parse :url <input name='url' placeholder='nil' size='42' />
                       :to <button type='submit'>:triples</button>)
                     </form>
                   </body>
                  </html>")
-           (GET "/extract" [url rdfagraph]
+           (GET "/extract.:ext" [ext url rdfagraph]
                 (let [{triples :triples
                        proc-triples :proc-triples} (impl/get-rdfa url)
                       result-triples (if (= rdfagraph "processor")
@@ -30,9 +30,10 @@
                                        triples)
                       turtle-result (string/join
                                       "\n"
-                                      (map repr/repr-triple result-triples))]
+                                      (map repr/repr-triple result-triples))
+                      mime-type (if (= ext "txt") "text/plain" "text/turtle")]
                   {:status 200
-                   :headers {"Content-Type" "text/plain; charset=utf-8"}
+                   :headers {"Content-Type" (str mime-type "; charset=utf-8")}
                    :body turtle-result}))
            (route/resources "/")
            (route/not-found "Not Found"))
