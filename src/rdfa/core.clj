@@ -120,7 +120,7 @@
                   (assoc xmlns-map nil xmlns) xmlns-map)
      :prefix-map (merge xmlns-map prefix-map)
      :vocab (attr "vocab")
-     :base (attr "xml:base")
+     :base nil
      :about (attr "about")
      :property (attr "property")
      :rel (attr "rel")
@@ -128,7 +128,7 @@
      :resource (or (attr "resource") (attr "href") (attr "src"))
      :typeof (attr "typeof")
      :inlist (attr "inlist")
-     :lang (or (attr "lang") (attr "xml:lang"))
+     :lang (or (attr "xml:lang") (attr "lang"))
      :content (attr "content")
      :datatype (attr "datatype")}))
 
