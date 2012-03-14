@@ -205,9 +205,12 @@
 
 (defn get-props-rels-revs-lists [env data]
   (let [inlist (data :inlist)
-        [props prop-errs] (to-nodes env (data :property))
-        [rels rel-errs] (to-nodes env (data :rel))
-        [revs rev-errs] (to-nodes env (data :rev))
+        to-predicates (fn [repr]
+                        (filter #(not= (type (first %1)) BNode)
+                                (to-nodes env repr)))
+        [props prop-errs] (to-predicates (data :property))
+        [rels rel-errs] (to-predicates (data :rel))
+        [revs rev-errs] (to-predicates (data :rev))
         errs (concat prop-errs rel-errs rev-errs)]
     [(if inlist
       [nil nil revs (or props rels)]
