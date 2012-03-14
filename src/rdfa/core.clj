@@ -41,15 +41,21 @@
 (defn to-iri [s base]
   (IRI. (resolve-iri s base)))
 
+(defn parse-safe-curie [repr]
+  (let [match (re-matches #"^\[(.*?)\]$" repr)]
+    [(if match (match 1) repr) (vector? match)]))
+
 (defn expand-term-or-curie
   ([env repr]
    (expand-term-or-curie repr (env :base)
                          (env :prefix-map) (env :term-map) (env :vocab)))
   ([repr base prefix-map]
-   (expand-term-or-curie repr base prefix-map {} nil))
+   (expand-term-or-curie repr base prefix-map nil nil))
   ([repr base prefix-map term-map vocab]
-   (let [repr (string/replace-first repr #"^\[?(.*?)\]?$" "$1")]
+   (let [[repr is-safe] (parse-safe-curie repr)]
      (cond
+       (empty? repr)
+       [nil nil]
        (> (.indexOf repr ":") -1)
        (let [[pfx term] (string/split repr #":" 2)
              is-empty (empty? pfx)
@@ -58,22 +64,26 @@
          (cond
            (and (or pfx-vocab is-bnode is-bnode)
              (.startsWith term "//")) [nil {:malformed-curie repr}]
-           is-empty [(to-iri (str xhv term) base) nil]
+           is-empty [(IRI. (str xhv term)) nil]
            is-bnode [(BNode. (or (not-empty term) gen-bnode-prefix)) nil]
-           pfx-vocab [(to-iri (str pfx-vocab term) base) nil]
-           :else (if-let [iri (to-iri repr "")]
+           pfx-vocab [(IRI. (str pfx-vocab term)) nil]
+           :else (if-let [iri (if-not is-safe (to-iri repr ""))]
                    [iri nil]
                    [nil {:undefined-prefix pfx}])))
        (not-empty vocab)
        [(to-iri (str vocab repr) base) nil]
+       (nil? term-map)
+       [nil nil]
        :else
        (if-let [iri (term-map (string/lower-case repr))]
          [(to-iri iri base) nil]
          [nil {:undefined-term repr}])))))
 
 (defn to-curie-or-iri [env repr]
-  (let [[iri err] (expand-term-or-curie repr (env :base) (env :prefix-map))]
-    [(or iri (to-iri repr (env :base))) nil]))
+  (let [is-safe (= (first repr) \[)
+        [iri err] (expand-term-or-curie repr (env :base) (env :prefix-map))
+        res (or iri (if-not is-safe (to-iri repr (env :base))))]
+    [res err]))
 
 (defn to-node [env repr]
   (expand-term-or-curie env repr))
@@ -88,7 +98,10 @@
 
 (defn parse-prefix [prefix]
   (if (empty? prefix) nil
-    (apply hash-map (string/split (string/trim (or prefix "")) #":?\s+"))))
+    (let [initial (apply hash-map
+                         (string/split (string/trim prefix) #":?\s+"))
+          valid-prefix? #(re-matches #"^[\w_][\w_\-\.]*$" %1)]
+      (select-keys initial (filter valid-prefix? (keys initial))))))
 
 (defn init-env
   [location {prefix-map :prefix-map

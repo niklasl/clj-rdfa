@@ -32,6 +32,9 @@
   (expand-term-or-curie env "[ns:name]")
   => [(IRI. "http://example.org/ns#name") nil]
 
+  (expand-term-or-curie env "[unknown:name]")
+  => [nil {:undefined-prefix "unknown"}]
+
   (expand-term-or-curie env "_:a")
   => [(BNode. "a") nil]
 
@@ -57,6 +60,11 @@
   => {"ns" "http://example.org/ns#"}
 
   (parse-prefix "  ns:   http://example.org/ns#
+                   voc: http://example.org/vocab#  ")
+  => {"ns" "http://example.org/ns#", "voc" "http://example.org/vocab#"}
+
+  (parse-prefix "  ns:   http://example.org/ns#
+                   $invalid: http://example.org/any#
                    voc: http://example.org/vocab#  ")
   => {"ns" "http://example.org/ns#", "voc" "http://example.org/vocab#"}
 
