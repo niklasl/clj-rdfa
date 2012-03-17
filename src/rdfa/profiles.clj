@@ -5,6 +5,7 @@
 (def contexts
   {:xml ; "http://www.w3.org/2011/rdfa-context/rdfa-1.1"
    {:prefix-map {"grddl" "http://www.w3.org/2003/g/data-view#",
+                 "ma" "http://www.w3.org/ns/ma-ont#"
                  "owl" "http://www.w3.org/2002/07/owl#",
                  "rdf" "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
                  "rdfa" "http://www.w3.org/ns/rdfa#",

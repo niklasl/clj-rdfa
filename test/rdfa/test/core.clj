@@ -20,6 +20,9 @@
   (expand-term-or-curie env "ns:name")
   => [(IRI. "http://example.org/ns#name") nil]
 
+  (expand-term-or-curie env "ns:")
+  => [(IRI. "http://example.org/ns#") nil]
+
   (expand-term-or-curie env "ns:name:first")
   => [(IRI. "http://example.org/ns#name:first") nil]
 
