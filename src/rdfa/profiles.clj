@@ -65,20 +65,24 @@
     :vocab nil}})
 
 ; TODO: combine contexts properly!
+
 (def contexts
   (assoc-in contexts [:xhtml :prefix-map]
             (get-in contexts [:xml :prefix-map])))
 
 (def contexts
   (update-in contexts [:xhtml :term-map]
-             #(merge (get-in contexts [:xml :term-map] %1))))
+             #(merge %1 (get-in contexts [:xml :term-map]))))
 
+
+(def contexts (assoc contexts :html (contexts :xhtml)))
 
 (defn detect-host-language [&{:keys [location mime-type doctype xmlns]}]
   ; TODO: add support for the other options
-  (if (or (.endsWith location ".html")
-          (.endsWith location ".xhtml")) :xhtml
-    :xml))
+  (cond
+    (.endsWith location ".html") :html
+    (.endsWith location ".xhtml") :xhtml
+    :else :xml))
 
 
 ; TODO:
@@ -99,8 +103,8 @@
         el (data :element)
         tag (dom/get-name el)]
     (assoc data
-           :base (if (= profile :xhtml) nil
-                   (dom/get-attr el "xml:base"))
+           :base (if (= profile :xml) (dom/get-attr el "xml:base")
+                   nil)
            :lang (or (data :lang) (dom/get-attr el "lang"))
            :about (or (data :about)
                       (if (and (or (= tag "head") (= tag "body"))
