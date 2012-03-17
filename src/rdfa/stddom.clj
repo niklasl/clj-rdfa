@@ -1,12 +1,36 @@
 (ns rdfa.stddom
   (:gen-class)
   (:require (rdfa dom profiles core repr))
-  (:import [javax.xml.parsers DocumentBuilderFactory]
-           [org.w3c.dom Node]))
+  (:import [org.w3c.dom Node]
+           [javax.xml.parsers DocumentBuilderFactory]
+           ;[nu.validator.htmlparser.dom HtmlDocumentBuilder]
+           [org.apache.xerces.parsers DOMParser]
+           [org.cyberneko.html HTMLConfiguration]))
 
 
 (defn dom-parse [uri]
-  (.. (DocumentBuilderFactory/newInstance) (newDocumentBuilder) (parse uri)))
+  (let [factory (doto (DocumentBuilderFactory/newInstance)
+                  (.setFeature
+                    "http://apache.org/xml/features/nonvalidating/load-external-dtd"
+                    false))
+        builder  (.newDocumentBuilder factory)]
+    (.parse builder uri)))
+
+;(defn html-dom-parse [uri]
+;  (.. (doto (HtmlDocumentBuilder.)) (parse uri)))
+
+(defn html-dom-parse [uri]
+  (.. (doto (DOMParser.
+              (doto (HTMLConfiguration.)
+                (.setProperty "http://cyberneko.org/html/properties/names/elems"
+                              "lower")
+                ; TODO: parser should get this from http content-type header;
+                ; at least support a manually provided encoding.
+                (.setProperty "http://cyberneko.org/html/properties/default-encoding"
+                              "utf-8")))
+        (.setFeature "http://xml.org/sax/features/namespaces" false)
+        (.parse uri))
+    (getDocument)))
 
 (defn node-list [nl]
   (loop [index (dec (.getLength nl)) nodes nil]
@@ -56,8 +80,9 @@
       (.writeToString ser frag))))
 
 (defn get-rdfa [location]
-  (try (let [root (.getDocumentElement (dom-parse location))
-             profile (rdfa.profiles/detect-host-language :location location)]
+  (try (let [profile (rdfa.profiles/detect-host-language :location location)
+             do-parse (if (= profile :html) html-dom-parse dom-parse)
+             root (.getDocumentElement (do-parse location))]
          (rdfa.core/extract-rdfa profile root location))
     (catch Exception e
       (rdfa.core/error-results (.getMessage e) "en"))))

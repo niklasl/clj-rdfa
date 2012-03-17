@@ -1,7 +1,10 @@
 (defproject
   rdfa "0.1.0-SNAPSHOT"
   :description "RDFa toolkit for extracting triples from RDFa 1.1 in XML/XHTML/HTML"
+  :url "https://github.com/niklasl/clj-rdfa"
   :dependencies [[org.clojure/clojure "1.3.0"]
+                 ;[nu.validator.htmlparser/htmlparser "1.2.1"]
+                 [net.sourceforge.nekohtml/nekohtml "1.9.15"]
                  [compojure "1.0.1"]
                  [ring/ring-core "1.0.2"]
                  [ring/ring-jetty-adapter "1.0.1"]
