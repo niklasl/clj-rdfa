@@ -1,6 +1,6 @@
 (defproject
   rdfa "0.1.0-SNAPSHOT"
-  :description "RDFa toolkit for extracting triples from RDFa 1.1 in XML/XHTML/HTML"
+  :description "A Clojure library for extracting triples from RDFa 1.1 in XML/XHTML/HTML"
   :url "https://github.com/niklasl/clj-rdfa"
   :dependencies [[org.clojure/clojure "1.3.0"]
                  ;[nu.validator.htmlparser/htmlparser "1.2.1"]

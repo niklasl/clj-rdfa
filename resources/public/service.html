@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>RDFa Triple Extractor in Clojure</title>
+  </head>
+  <body>
+    <h1>(use 'rdfa)</h1>
+    <form action="extract.txt" method="GET">
+      (parse :url <input name="url" placeholder="nil" size="42" />
+      :to <button type="submit">:triples</button>)
+    </form>
+    <p>
+      <a rel="meta" href="/">(about :clj-rdfa)</a>
+    </p>
+  </body>
+</html>

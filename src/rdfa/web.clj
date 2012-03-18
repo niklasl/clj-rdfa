@@ -2,6 +2,7 @@
   (:use compojure.core
         [ring.adapter.jetty :only [run-jetty]])
   (:require [clojure.string :as string]
+            [ring.util.response :as resp]
             [compojure.route :as route]
             [compojure.handler :as handler])
   (:require [rdfa.stddom :as impl]
@@ -9,19 +10,7 @@
 
 (defroutes main-routes
            (GET "/" []
-                "<!DOCTYPE html>
-                 <html>
-                  <head>
-                    <title>RDFa Triple Extractor in Clojure</title>
-                 </head>
-                  <body>
-                    <h1>(use 'rdfa)</h1>
-                    <form action='extract.txt' method='GET'>
-                      (parse :url <input name='url' placeholder='nil' size='42' />
-                      :to <button type='submit'>:triples</button>)
-                    </form>
-                  </body>
-                 </html>")
+                (resp/resource-response "index.html" {:root "public"}))
            (GET "/extract.:ext" [ext url rdfagraph]
                 (let [{triples :triples
                        proc-triples :proc-triples} (impl/get-rdfa url)
