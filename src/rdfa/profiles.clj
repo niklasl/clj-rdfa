@@ -2,6 +2,14 @@
   (:require [rdfa.dom :as dom]))
 
 
+(let [xsd "http://www.w3.org/2001/XMLSchema#"]
+  (def xsd:date (str xsd "date"))
+  (def xsd:time (str xsd "time"))
+  (def xsd:dateTime (str xsd "dateTime"))
+  (def xsd:duration (str xsd "duration"))
+  (def xsd:gYear (str xsd "gYear"))
+  (def xsd:gYearMonth (str xsd "gYearMonth")))
+
 (def contexts
   {:xml ; "http://www.w3.org/2011/rdfa-context/rdfa-1.1"
    {:prefix-map {"grddl" "http://www.w3.org/2003/g/data-view#",
@@ -86,8 +94,7 @@
     :else :xml))
 
 
-; TODO:
-; - vary these functions by profile
+; TODO: vary these functions by profile (a lot only applies to (x)html)
 
 (defn get-host-env [profile root]
   (let [base (if-let [el (first (dom/find-by-tag root "base"))]
@@ -97,18 +104,33 @@
            :profile profile
            :base base)))
 
-; TODO: :content and :datatype from @datetime for html5
+; TODO: make strict and optimize!
+(defn get-datetime-datatype [repr]
+  (cond
+    (nil? repr) nil
+    (re-matches #"^\d{4,}$" repr) xsd:gYear
+    (re-matches #"^\d{4,}-\d\d$" repr) xsd:gYearMonth
+    (re-matches #"^T?\d{2}:\d{2}.*" repr) xsd:time
+    (re-matches #"^\d{4,}-\d\d-\d\dT\d{2}.*" repr) xsd:dateTime
+    (re-matches #"^\d{4,}-\d\d-\d\d.*" repr) xsd:date
+    (re-matches #"^P\d+[YMDTHMS0-9]*" repr) xsd:duration))
 
 (defn extended-data [env data]
   (let [profile (env :profile)
         el (data :element)
-        tag (dom/get-name el)]
+        tag (dom/get-name el)
+        datetime (or (dom/get-attr el "datetime")
+                     (if (= tag "time") (dom/get-text el)))]
     (assoc data
            :base (if (= profile :xml) (dom/get-attr el "xml:base")
                    nil)
-           :lang (or (data :lang) (dom/get-attr el "lang"))
            :about (or (data :about)
                       (if (and (or (= tag "head") (= tag "body"))
                             (not (data :resource)))
-                        (:id (env :parent-object)))))))
+                        (:id (env :parent-object))))
+           :lang (or (data :lang) (dom/get-attr el "lang"))
+           :content (or datetime (dom/get-attr el "value") (data :content))
+           :datatype (or (data :datatype)
+                         (get-datetime-datatype datetime))
+           :resource (or (data :resource) (dom/get-attr el "data")))))
 
