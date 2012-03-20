@@ -129,7 +129,9 @@
                             (not (data :resource)))
                         (:id (env :parent-object))))
            :lang (or (data :lang) (dom/get-attr el "lang"))
-           :content (or datetime (dom/get-attr el "value") (data :content))
+           :content (or datetime
+                        (if (= tag "data") (dom/get-attr el "value"))
+                        (data :content))
            :datatype (or (data :datatype)
                          (get-datetime-datatype datetime))
            :resource (or (data :resource) (dom/get-attr el "data")))))
