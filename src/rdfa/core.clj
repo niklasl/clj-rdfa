@@ -281,7 +281,7 @@
                               (lazy-cat
                                 (for [rel rels] [parent-o rel completing-s])
                                 (for [rev revs] [completing-s rev parent-o]))))
-        vocab-triples (if-let [v (data :vocab)]
+        vocab-triples (if-let [v (not-empty (data :vocab))]
                         [[(IRI. (env :base)) rdfa:usesVocabulary (IRI. v)]])
         proc-triples (mapcat create-warning-triples errs)
         next-incomplete (cond
