@@ -63,7 +63,7 @@
              pfx-vocab (if-not is-bnode (prefix-map pfx))]
          (cond
            (and (or pfx-vocab is-bnode is-bnode)
-             (.startsWith term "//")) [nil {:malformed-curie repr}]
+                (.startsWith term "//")) [nil {:malformed-curie repr}]
            is-empty [(IRI. (str xhv term)) nil]
            is-bnode [(BNode. (or (not-empty term) gen-bnode-prefix)) nil]
            pfx-vocab [(IRI. (str pfx-vocab term)) nil]
@@ -162,24 +162,29 @@
     env))
 
 (defn get-subject [env data]
-  (let [new-pred (or (data :rel) (data :rev) (data :property))]
-    (if-let [s (or (data :about)
-                   (if (not new-pred)
-                     (data :resource))
-                   (if (data :is-root)
-                     ""))]
-      (to-curie-or-iri env s)
-      (if (and (data :typeof)
-               (not new-pred)
-               (not (data :resource)))
-        [(next-bnode) nil]))))
+  (let [new-pred (or (data :rel) (data :rev) (data :property))
+        about (data :about)
+        resource (data :resource)
+        use-resource (and (not about)
+                          (or (and (data :property)
+                                   (or (data :content) (data :datatype)))
+                              (not new-pred)))
+        subject (or (if use-resource resource about)
+                    (if (data :is-root) ""))]
+    (cond
+      subject (to-curie-or-iri env subject)
+      (and (data :typeof) (not new-pred) (not resource))
+      [(next-bnode) nil])))
 
 (defn get-literal [env data]
   (let [el (data :element)
         as-literal (and (data :property)
-                        (not (or (data :resource)
-                                 (and (data :typeof)
-                                      (not (data :about))))))
+                        (or
+                          (and (data :datatype)
+                               (not (or (data :rel) (data :rev))))
+                          (not (or (data :resource)
+                                   (and (data :typeof)
+                                        (not (data :about)))))))
         [datatype dt-err] (if-let [dt (not-empty (data :datatype))]
                             (to-node env dt))
         as-xml (= datatype rdf:XMLLiteral)
@@ -188,20 +193,21 @@
                                   (dom/get-inner-xml el (env :xmlns-map) (env :lang))
                                   (dom/get-text el))))]
     [(if repr
-       (Literal. repr
-                 (or datatype
-                     (or (data :lang) (env :lang)))))
+       (Literal. repr (or datatype
+                          (or (data :lang) (env :lang)))))
      dt-err]))
 
 (defn get-object [env data]
-  (cond
-    (data :resource)
-    (to-curie-or-iri env (data :resource))
-    (or
-      (and (or (data :rel) (data :rev))
-           (not (data :about)) (data :typeof))
-      (and (data :property) (not (data :content)) (data :typeof)))
-    [(next-bnode) nil]))
+  (let [link (or (data :rel) (data :rev))
+        prop (data :property)
+        typeof (data :typeof)
+        resource (data :resource)]
+    (cond
+      (and (not link) prop
+           (or (data :content) (data :datatype))) nil
+      resource (to-curie-or-iri env resource)
+      (or (and link (not (data :about)) typeof)
+          (and prop typeof)) [(next-bnode) nil])))
 
 (defn get-props-rels-revs-lists [env data]
   (let [inlist (data :inlist)
@@ -213,8 +219,8 @@
         [revs rev-errs] (to-predicates (data :rev))
         errs (concat prop-errs rel-errs rev-errs)]
     [(if inlist
-      [nil nil revs (or props rels)]
-      [props rels revs nil]) errs]))
+       [nil nil revs (or props rels)]
+       [props rels revs nil]) errs]))
 
 (defn parse-element [parent-env el]
   (let [data (profiles/extended-data parent-env (get-data el))
