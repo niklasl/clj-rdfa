@@ -7,7 +7,7 @@ Extract triples from RDFa 1.1 XHTML and HTML documents using Clojure.
 For now, use the source. Or build a jar and just use that:
 
     $ lein uberjar
-    $ java -jar rdfa-*-standalone.jar resources/test.html
+    $ java -jar rdfa-*-standalone.jar examples/test.html
 
 ## Development
 

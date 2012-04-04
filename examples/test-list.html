@@ -1,0 +1,23 @@
+<html lang="en">
+  <head>
+    <base href="http://example.org/2012/example" />
+    <title></title>
+  </head>
+  <body vocab="http://purl.org/dc/terms/">
+    <!--
+    <p rel="license" inlist="">
+      License: <a href="/cc-by"><span property="rdfs:label">CC-BY</span></a>,
+      <span><span><span><a href="/cc">CC</a></span></span></span>
+    </p>
+    -->
+    <p property="rdf:value" inlist="">Foo</p>
+    <span rel="rdfs:seeAlso" resource="bar">
+      <p property="rdf:value" inlist="">Bar</p>
+    </span>
+    <span rel="rdfs:seeAlso">
+      <p about="bal" property="rdf:value" inlist="">Bal</p>
+    </span>
+    <p property="rdf:value" inlist="">Baz</p>
+    <p property="rdf:value " inlist="" resource="boo">Boo</p>
+  </body>
+</html>
