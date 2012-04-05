@@ -17,15 +17,11 @@ Keep a test watcher running with:
 
 In a REPL, run:
 
-    user=> (do (use 'rdfa.stddom :reload-all) (-main "resources/test.html"))
+    user=> (do (use 'rdfa.stddom :reload-all) (-main "examples/test.html"))
 
 For interactive development, use e.g.:
 
     $ lein run -m vimclojure.nailgun.NGServer 127.0.0.1
-
-Start an RDFa-to-NTriples web service using:
-
-    $ lein ring server-headless
 
 ## License
 
