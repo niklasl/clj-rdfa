@@ -11,4 +11,6 @@
                      [lein-marginalia "0.6.0"]
                      [vimclojure/server "2.3.1"]]
   :repositories {"stuartsierra-releases" "http://stuartsierra.com/maven2"}
-  :main rdfa.stddom)
+  :target-dir "target"
+  :jar-exclusions [#"(?:^|/)\..+"]
+  :main rdfa.cli)
