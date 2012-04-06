@@ -17,7 +17,7 @@ Keep a test watcher running with:
 
 In a REPL, run:
 
-    user=> (do (use 'rdfa.stddom :reload-all) (-main "examples/test.html"))
+    user=> (do (use 'rdfa.cli :reload-all) (-main "examples/test.html"))
 
 For interactive development, use e.g.:
 
