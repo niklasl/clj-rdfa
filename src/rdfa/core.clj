@@ -35,7 +35,7 @@
 
 (defn resolve-iri [iref base]
   (if (not-empty iref)
-    (.. (java.net.URI. base) (resolve iref) (toString))
+    (.. (java.net.URI. base) (resolve iref) (normalize) (toString))
     base))
 
 (defn to-iri [s base]
