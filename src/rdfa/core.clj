@@ -152,18 +152,19 @@
      :datatype (attr "datatype")}))
 
 (defn update-mappings [env data]
-  (let [env (update-in env [:xmlns-map]
-                       #(merge %1 (data :xmlns-map)))
-        env (update-in env [:prefix-map]
-                       #(merge %1 (data :prefix-map)))
-        env (if-let [vocab (data :vocab)]
-              (assoc env :vocab vocab)
-              env)
-        env (if-let [base (data :base)]
+  (let [env (if-let [base (data :base)]
               (assoc env :base base)
               env)
         env (if-let [lang (data :lang)]
               (assoc env :lang lang)
+              env)
+        env (update-in env [:xmlns-map]
+                       #(merge %1 (data :xmlns-map)))
+        env (update-in env [:prefix-map]
+                       #(merge %1 (data :prefix-map)))
+        env (if-let [vocab (data :vocab)]
+              (assoc env :vocab (if (empty? vocab) nil
+                                  (resolve-iri vocab (env :base))))
               env)]
     env))
 
@@ -293,8 +294,8 @@
                               (lazy-cat
                                 (for [rel rels] [parent-o rel completing-s])
                                 (for [rev revs] [completing-s rev parent-o]))))
-        vocab-triples (if-let [v (not-empty (data :vocab))]
-                        [[(IRI. (env :base)) rdfa:usesVocabulary (IRI. v)]])
+        vocab-triples (if (not-empty (data :vocab))
+                        [[(IRI. (env :base)) rdfa:usesVocabulary (IRI. (env :vocab))]])
         proc-triples (mapcat create-warning-triples errs)
         next-incomplete (cond
                           (and (or rels revs list-ps) (not active-o))
