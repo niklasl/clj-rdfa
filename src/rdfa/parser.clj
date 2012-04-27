@@ -35,8 +35,10 @@
   ([location]
    (get-rdfa location location))
   ([source location]
-   (try (let [profile (rdfa.profiles/detect-host-language :location location)
-              do-parse (if (= profile :html) html-dom-parse dom-parse)
+   (let [profile (rdfa.profiles/detect-host-language :location location)]
+     (get-rdfa source location profile)))
+  ([source location profile]
+   (try (let [do-parse (if (= profile :html) html-dom-parse dom-parse)
               root (.getDocumentElement (do-parse source))]
           (rdfa.core/extract-rdfa profile root location))
      (catch Exception e
