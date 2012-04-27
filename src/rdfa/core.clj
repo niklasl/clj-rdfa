@@ -268,7 +268,10 @@
         completing-s (or subject (if has-p incomplete-s) o-resource)
         active-s (or subject (if has-p incomplete-s) parent-o)
         active-o (or o-resource o-literal)
-        next-parent-o (or o-resource active-s)
+        inherited-o-r (if (or (not (data :property))
+                              (data :typeof)
+                              (data :rel) (data :rev)) o-resource)
+        next-parent-o (or inherited-o-r active-s)
         next-incomplete-s (if (not (or subject has-p))
                             incomplete-s
                             (get-hanging data))
