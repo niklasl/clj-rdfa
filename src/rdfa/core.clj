@@ -189,6 +189,7 @@
                         (or
                           (and (data :datatype)
                                (not (or (data :rel) (data :rev))))
+                          (or (data :rel) (data :rev))
                           (not (or (data :resource)
                                    (and (data :typeof)
                                         (not (data :about)))))))
