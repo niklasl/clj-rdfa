@@ -144,7 +144,7 @@
      :property (attr "property")
      :rel (attr "rel")
      :rev (attr "rev")
-     :resource (or (attr "resource") (attr "href") (attr "src"))
+     :resources (remove nil? [(attr "resource") (attr "href") (attr "src")])
      :typeof (attr "typeof")
      :inlist (attr "inlist")
      :lang (or (attr "xml:lang") (attr "lang"))
@@ -168,20 +168,27 @@
               env)]
     env))
 
+(defn get-resolved-resource [env candidates]
+  ; TODO: collect all errs?
+  (let [resolved (map #(to-curie-or-iri env %1) candidates)]
+    (or (first (filter #(first %1) resolved))
+        (first resolved))))
+
 (defn get-subject [env data]
   (let [new-pred (or (data :rel) (data :rev) (data :property))
-        about (data :about)
-        resource (data :resource)
-        use-resource (and (not about)
+        about-and-err (if-let [about (data :about)]
+                        (to-curie-or-iri env about))
+        resource-and-err (get-resolved-resource env (data :resources))
+        use-resource (and (not (first about-and-err))
                           (or (and (data :property)
                                    (or (data :content) (data :datatype)))
                               (not new-pred)))
-        subject (or (if use-resource resource about)
-                    (if (data :is-root) ""))]
+        subject (or (if use-resource resource-and-err about-and-err)
+                    (if (data :is-root) [nil nil]))]
     (cond
-      subject (to-curie-or-iri env subject)
-      (and (data :typeof) (not new-pred) (not resource))
-      [(next-bnode) nil])))
+      subject subject
+      (and (data :typeof) (not new-pred)
+           (not (first resource-and-err))) [(next-bnode) nil])))
 
 (defn get-literal [env data]
   (let [el (data :element)
@@ -190,7 +197,7 @@
                           (and (data :datatype)
                                (not (or (data :rel) (data :rev))))
                           (or (data :rel) (data :rev))
-                          (not (or (data :resource)
+                          (not (or (not-empty (data :resources))
                                    (and (data :typeof)
                                         (not (data :about)))))))
         [datatype dt-err] (if-let [dt (not-empty (data :datatype))]
@@ -209,13 +216,15 @@
   (let [link (or (data :rel) (data :rev))
         prop (data :property)
         typeof (data :typeof)
-        resource (data :resource)]
+        resources (data :resources)]
     (cond
       (and (not link) prop
-           (or (data :content) (data :datatype))) nil
-      resource (to-curie-or-iri env resource)
-      (or (and link (not (data :about)) typeof)
-          (and prop typeof)) [(next-bnode) nil])))
+           (or (data :content) (data :datatype)))
+      nil
+      (not-empty resources)
+      (get-resolved-resource env resources)
+      (or (and link (not (data :about)) typeof) (and prop typeof))
+      [(next-bnode) nil])))
 
 (defn get-props-rels-revs-lists [env data]
   (let [inlist (data :inlist)
@@ -246,7 +255,7 @@
 
 (defn get-hanging [data]
   (if (and (or (data :rel) (data :rev))
-           (not (data :resource))
+           (empty? (data :resources))
            (or (data :about) (not (data :typeof)))
            (not (data :inlist)))
     (next-bnode)))

@@ -115,6 +115,7 @@
 
 (defn extended-data [env data]
   (let [profile (env :profile)
+        resources (data :resources)
         el (data :element)
         tag (dom/get-name el)
         datetime (or (dom/get-attr el "datetime")
@@ -124,7 +125,7 @@
                    nil)
            :about (or (data :about)
                       (if (and (or (= tag "head") (= tag "body"))
-                            (not (data :resource)))
+                            (empty? resources))
                         (:id (env :parent-object))))
            :lang (or (data :lang) (dom/get-attr el "lang"))
            :content (or datetime
@@ -132,5 +133,7 @@
                         (data :content))
            :datatype (or (data :datatype)
                          (get-datetime-datatype datetime))
-           :resource (or (data :resource) (dom/get-attr el "data")))))
+           :resources (if-let [data-res (dom/get-attr el "data")]
+                        (conj resources data-res)
+                        resources))))
 
