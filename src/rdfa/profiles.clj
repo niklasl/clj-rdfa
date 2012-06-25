@@ -94,9 +94,13 @@
 
 ; TODO: vary these functions by profile (a lot only applies to (x)html)
 
+(defn get-base [el profile]
+  (if (= profile :xml) (dom/get-attr el "xml:base") nil))
+
 (defn get-host-env [profile root]
-  (let [base (if-let [el (first (dom/find-by-tag root "base"))]
-               (dom/get-attr el "href"))
+  (let [base (or (if-let [el (first (dom/find-by-tag root "base"))]
+                 (dom/get-attr el "href"))
+                 (get-base root profile))
         context (contexts profile)]
     (assoc context
            :profile profile
@@ -122,8 +126,7 @@
                      (if (= tag "time") (dom/get-text el)))
         mute-plain-relrev (and (= profile :html) (data :property))]
     (assoc data
-           :base (if (= profile :xml) (dom/get-attr el "xml:base")
-                   nil)
+           :base (get-base el profile)
            :about (or (data :about)
                       (if (and (or (= tag "head") (= tag "body"))
                             (empty? resources))
