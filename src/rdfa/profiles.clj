@@ -119,7 +119,8 @@
         el (data :element)
         tag (dom/get-name el)
         datetime (or (dom/get-attr el "datetime")
-                     (if (= tag "time") (dom/get-text el)))]
+                     (if (= tag "time") (dom/get-text el)))
+        mute-plain-relrev (and (= profile :html) (data :property))]
     (assoc data
            :base (if (= profile :xml) (dom/get-attr el "xml:base")
                    nil)
@@ -128,6 +129,14 @@
                             (empty? resources))
                         (:id (env :parent-object))))
            :lang (or (data :lang) (dom/get-attr el "lang"))
+           :rel (if-let [rel (data :rel)]
+                  (if (or (not mute-plain-relrev)
+                          (> (.indexOf rel ":") -1))
+                    rel))
+           :rev (if-let [rev (data :rev)]
+                  (if (or (not mute-plain-relrev)
+                          (> (.indexOf rev ":") -1))
+                    rev))
            :content (or datetime
                         (if (= tag "data") (dom/get-attr el "value"))
                         (data :content))
