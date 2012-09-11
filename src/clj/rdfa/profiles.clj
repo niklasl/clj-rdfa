@@ -94,9 +94,13 @@
 
 ; TODO: vary these functions by profile (a lot only applies to (x)html)
 
+(defn get-base [el profile]
+  (if (= profile :xml) (dom/get-attr el "xml:base") nil))
+
 (defn get-host-env [profile root]
-  (let [base (if-let [el (first (dom/find-by-tag root "base"))]
-               (dom/get-attr el "href"))
+  (let [base (or (if-let [el (first (dom/find-by-tag root "base"))]
+                 (dom/get-attr el "href"))
+                 (get-base root profile))
         context (contexts profile)]
     (assoc context
            :profile profile
@@ -119,15 +123,23 @@
         el (data :element)
         tag (dom/get-name el)
         datetime (or (dom/get-attr el "datetime")
-                     (if (= tag "time") (dom/get-text el)))]
+                     (if (= tag "time") (dom/get-text el)))
+        mute-plain-relrev (and (= profile :html) (data :property))]
     (assoc data
-           :base (if (= profile :xml) (dom/get-attr el "xml:base")
-                   nil)
+           :base (get-base el profile)
            :about (or (data :about)
                       (if (and (or (= tag "head") (= tag "body"))
                             (empty? resources))
                         (:id (env :parent-object))))
            :lang (or (data :lang) (dom/get-attr el "lang"))
+           :rel (if-let [rel (data :rel)]
+                  (if (or (not mute-plain-relrev)
+                          (> (.indexOf rel ":") -1))
+                    rel))
+           :rev (if-let [rev (data :rev)]
+                  (if (or (not mute-plain-relrev)
+                          (> (.indexOf rev ":") -1))
+                    rev))
            :content (or datetime
                         (if (= tag "data") (dom/get-attr el "value"))
                         (data :content))
