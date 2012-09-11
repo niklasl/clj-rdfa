@@ -8,3 +8,5 @@ pom.xml
 /docs/uberdoc.html
 .classpath
 .project
+/.crossover-cljs
+/.lein-cljsbuild*
