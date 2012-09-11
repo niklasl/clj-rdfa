@@ -6,3 +6,5 @@ pom.xml
 .lein-deps-sum
 *war
 /docs/uberdoc.html
+.classpath
+.project
