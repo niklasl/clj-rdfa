@@ -13,15 +13,14 @@
   :plugins [[lein-cljsbuild "0.2.7"]]
   :hooks [leiningen.cljsbuild]
   :cljsbuild {:crossovers [rdfa.dom rdfa.profiles rdfa.core rdfa.repr]
-              :builds [{:id "dev"
-                        :source-path "src/cljs"
-                        :compiler {:output-to "resources/rdfa.js"
+              :crossover-jar true
+              :crossover-path "src/crossover"
+              :builds [{:source-path "src/cljs"
+                        :jar true
+                        :compiler {:output-to "resources/public/js/rdfa.js"
                                    :optimizations :whitespace
-                                   :pretty-print true}}
-                       {:source-path "src/cljs"
-                        :compiler {:output-to "resources/rdfa-min.js"
-                                   :optimizations :advanced
-                                   :pretty-print false}}]}
+                                   :pretty-print true
+                                   :print-input-delimiter true}}]}
   :repositories {"stuartsierra-releases" "http://stuartsierra.com/maven2"}
   :source-paths ["src/clj"]
   :resource-paths ["resources"]
