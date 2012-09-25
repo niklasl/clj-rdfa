@@ -10,3 +10,6 @@ pom.xml
 .project
 /.crossover-cljs
 /.lein-cljsbuild*
+/crossover-cljs*
+/resources/public/js*
+/src/crossover*
