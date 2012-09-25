@@ -1,16 +1,17 @@
 (defproject
-  rdfa "0.5.0-SNAPSHOT"
-  :description "A Clojure library for extracting triples from RDFa 1.1 in XML/XHTML/HTML"
+  rdfa "0.5.1-SNAPSHOT"
+  :description "A Clojure library for extracting triples from RDFa 1.1 in HTML/XHTML/SVG/XML"
   :url "https://github.com/niklasl/clj-rdfa"
-  :dependencies [[org.clojure/clojure "1.3.0"]
-                 ;[nu.validator.htmlparser/htmlparser "1.2.1"]
+  :license {:name "Eclipse Public License - v 1.0"
+            :url "http://www.eclipse.org/legal/epl-v10.html"
+            :distribution :repo}
+  :dependencies [[org.clojure/clojure "1.4.0"]
                  [net.sourceforge.nekohtml/nekohtml "1.9.15"]]
-  :dev-dependencies [[midje "1.3.2-SNAPSHOT"]
-                     [lein-midje "1.0.9"]
-                     [com.stuartsierra/lazytest "1.2.3"]
-                     [lein-marginalia "0.6.0"]
-                     [vimclojure/server "2.3.1"]]
+  :profiles {:dev {:plugins [[lein-midje "2.0.0-SNAPSHOT"]]
+                   :dependencies [[midje "1.4.0"]
+                                  [com.stuartsierra/lazytest "1.2.3"]]}}
   :repositories {"stuartsierra-releases" "http://stuartsierra.com/maven2"}
+  :min-lein-version "2.0.0"
   :target-dir "target"
   :jar-exclusions [#"(?:^|/)\..+"]
   :main rdfa.cli)
