@@ -1,14 +1,21 @@
 (ns rdfa.stddom
   (:require [clojure.string :as string]
+            [goog.dom :as gdom]
             [rdfa.dom :as dom]))
 
-(defn node-list [nl]
+(defn- node-list [nl]
   (if-not (nil? nl)
     (loop [index (dec (.-length nl)) nodes nil]
       (if (= index -1) nodes
         (recur (dec index) (cons (.item nl index) nodes))))))
 
-(extend-type js/Node
+(defn- serialize-to-xml [node]
+  (try (.serializeToString (js/XMLSerializer.) node)
+    (catch js/Exception e
+      (try (.-xml node)
+        (catch js/Exception e)))))
+
+(extend-type default
   rdfa.dom/DomAccess
   (get-name [this] (.-nodeName this))
   (get-attr [this attr-name] (if (and (.-hasAttribute this) (.hasAttribute this attr-name)) (.getAttribute this attr-name)))
@@ -29,4 +36,22 @@
                       (.-nodeValue node))
                     (map get-values (node-list (.-childNodes node)))))]
       (string/join (flatten (get-values this)))))
-  (get-inner-xml [this xmlns-map lang] ""))
+  (get-inner-xml
+    [this xmlns-map lang]
+    (loop [nodes (node-list (.-childNodes this))
+           frag (gdom/htmlToDocumentFragment "")]
+      (if (seq nodes)
+        (recur
+          (rest nodes)
+          (let [node (first nodes)]
+            (do
+              (if (= (.-nodeType node) Node/ELEMENT_NODE)
+                (do
+                  (if (not-empty lang)
+                    (.setAttribute node "xml:lang" lang))
+                  (doseq [[pfx iri] xmlns-map]
+                    (let [qname (str "xmlns" (if pfx \:) pfx)]
+                      (.setAttribute node qname iri)))
+                  (.appendChild frag node)))
+              frag)))
+        (serialize-to-xml frag)))))
