@@ -15,7 +15,7 @@
       (try (.-xml node)
         (catch js/Exception e)))))
 
-(extend-type default
+(extend-type js/Node
   rdfa.dom/DomAccess
   (get-name [this] (.-nodeName this))
   (get-attr [this attr-name] (if (and (.-hasAttribute this) (.hasAttribute this attr-name)) (.getAttribute this attr-name)))
