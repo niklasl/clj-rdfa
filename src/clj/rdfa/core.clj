@@ -1,6 +1,7 @@
 (ns rdfa.core
   (:require [clojure.string :as string]
             [rdfa.dom :as dom]
+            [rdfa.utils :as utils]
             [rdfa.profiles :as profiles]))
 
 (defrecord BNode [id])
@@ -14,7 +15,6 @@
 (defn next-bnode []
   (swap! bnode-counter inc)
   (BNode. (str gen-bnode-prefix @bnode-counter)))
-
 
 (let [rdf "http://www.w3.org/1999/02/22-rdf-syntax-ns#"]
   (def rdf:type (IRI. (str rdf "type")))
@@ -31,21 +31,8 @@
 
 (def xhv "http://www.w3.org/1999/xhtml/vocab#")
 
-
-(defn resolve-iri [iref base]
-  (if (not-empty iref)
-    ; NOTE: work around bug in java.net.URI for resolving against query string
-    ; See e.g. org.apache.http.client.utils.
-    ;   URIUtils#resolveReferenceStartingWithQueryString
-    iref
-    #_(if (.startsWith iref "?")
-      (str (let [i (.indexOf base "?")]
-             (if (> i -1) (subs base 0 i) base)) iref)
-      (.. (java.net.URI. base) (resolve iref) (normalize) (toString)))
-    base))
-
 (defn to-iri [s base]
-  (IRI. (resolve-iri s base)))
+  (IRI. (utils/resolve-iri s base)))
 
 (defn parse-safe-curie [repr]
   (let [match (re-matches #"^\[(.*?)\]$" repr)]
@@ -164,7 +151,7 @@
                        #(merge %1 (data :prefix-map)))
         env (if-let [vocab (data :vocab)]
               (assoc env :vocab (if (empty? vocab) nil
-                                  (resolve-iri vocab (env :base))))
+                                  (utils/resolve-iri vocab (env :base))))
               env)]
     env))
 
