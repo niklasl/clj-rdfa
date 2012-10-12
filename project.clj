@@ -22,7 +22,7 @@
                                    :pretty-print true
                                    :print-input-delimiter true}}]}
   :repositories {"stuartsierra-releases" "http://stuartsierra.com/maven2"}
-  :source-paths ["src/clj"]
+  :source-paths ["src/clj" "src/cljs" "src/crossover"]
   :resource-paths ["resources"]
   :target-dir "target"
   :jar-exclusions [#"(?:^|/)\..+"]
