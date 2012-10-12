@@ -1,9 +1,8 @@
 /pom.xml
 /target
 /docs/uberdoc.html
-.classpath
-.project
 /.crossover*
-/src/crossover*
 /.lein*
 /resources/public/js*
+.classpath
+.project
