@@ -5,7 +5,7 @@
   :license {:name "Eclipse Public License - v 1.0"
             :url "http://www.eclipse.org/legal/epl-v10.html"
             :distribution :repo}
-  :dependencies [[org.clojure/clojure "1.4.0"]
+  :dependencies [[org.clojure/clojure "1.3.0"]
                  [net.sourceforge.nekohtml/nekohtml "1.9.15"]]
   :profiles {:dev {:plugins [[lein-midje "2.0.0-SNAPSHOT"]]
                    :dependencies [[midje "1.4.0"]
