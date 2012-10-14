@@ -74,3 +74,7 @@
   (parse-prefix "")
   => nil )
 
+
+(facts
+  (next-bnode) =not=> (next-bnode))
+

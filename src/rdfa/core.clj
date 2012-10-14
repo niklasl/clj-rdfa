@@ -13,8 +13,8 @@
 (def bnode-counter (atom 0))
 
 (defn next-bnode []
-  (swap! bnode-counter inc)
-  (BNode. (str gen-bnode-prefix @bnode-counter)))
+  (BNode. (str gen-bnode-prefix
+               (swap! bnode-counter inc))))
 
 
 (let [rdf "http://www.w3.org/1999/02/22-rdf-syntax-ns#"]
