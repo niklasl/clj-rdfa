@@ -69,7 +69,7 @@
              pfx-vocab (if-not is-bnode (prefix-map pfx))]
          (cond
            (and (or pfx-vocab is-bnode is-bnode)
-                (.startsWith term "//")) [nil {:malformed-curie repr}]
+                (= (take 2 term) '(\/ \/))) [nil {:malformed-curie repr}]
            is-empty [(IRI. (str xhv term)) nil]
            is-bnode [(BNode. (or (not-empty term) gen-bnode-prefix)) nil]
            pfx-vocab [(IRI. (str pfx-vocab term)) nil]
