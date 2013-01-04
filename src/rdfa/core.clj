@@ -1,8 +1,8 @@
 (ns rdfa.core
-  (:require [clojure.string :as string])
-  (:require [rdfa.dom :as dom])
-  (:require [rdfa.profiles :as profiles]))
-
+  (:require [clojure.string :as string]
+            [rdfa.dom :as dom]
+            [rdfa.profiles :as profiles])
+  (:use [rdfa.utils :only [resolve-iri]]))
 
 (defrecord BNode [id])
 (defrecord IRI [id])
@@ -31,18 +31,6 @@
   (def dc:description (IRI. "http://purl.org/dc/terms/description")))
 
 (def xhv "http://www.w3.org/1999/xhtml/vocab#")
-
-
-(defn resolve-iri [iref base]
-  (if (not-empty iref)
-    ; NOTE: work around bug in java.net.URI for resolving against query string
-    ; See e.g. org.apache.http.client.utils.
-    ;   URIUtils#resolveReferenceStartingWithQueryString
-    (if (.startsWith iref "?")
-      (str (let [i (.indexOf base "?")]
-             (if (> i -1) (subs base 0 i) base)) iref)
-      (.. (java.net.URI. base) (resolve iref) (normalize) (toString)))
-    base))
 
 (defn to-iri [s base]
   (IRI. (resolve-iri s base)))
