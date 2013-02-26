@@ -1,8 +1,8 @@
 (ns rdfa.core
-  (:require [clojure.string :as string])
-  (:require [rdfa.dom :as dom])
-  (:require [rdfa.profiles :as profiles]))
-
+  (:require [clojure.string :as string]
+            [rdfa.dom :as dom]
+            [rdfa.profiles :as profiles])
+  (:use [rdfa.utils :only [resolve-iri]]))
 
 (defrecord BNode [id])
 (defrecord IRI [id])
@@ -32,18 +32,6 @@
 
 (def xhv "http://www.w3.org/1999/xhtml/vocab#")
 
-
-(defn resolve-iri [iref base]
-  (if (not-empty iref)
-    ; NOTE: work around bug in java.net.URI for resolving against query string
-    ; See e.g. org.apache.http.client.utils.
-    ;   URIUtils#resolveReferenceStartingWithQueryString
-    (if (.startsWith iref "?")
-      (str (let [i (.indexOf base "?")]
-             (if (> i -1) (subs base 0 i) base)) iref)
-      (.. (java.net.URI. base) (resolve iref) (normalize) (toString)))
-    base))
-
 (defn to-iri [s base]
   (IRI. (resolve-iri s base)))
 
@@ -69,7 +57,7 @@
              pfx-vocab (if-not is-bnode (prefix-map pfx))]
          (cond
            (and (or pfx-vocab is-bnode is-bnode)
-                (.startsWith term "//")) [nil {:malformed-curie repr}]
+                (= (take 2 term) '(\/ \/))) [nil {:malformed-curie repr}]
            is-empty [(IRI. (str xhv term)) nil]
            is-bnode [(BNode. (or (not-empty term) gen-bnode-prefix)) nil]
            pfx-vocab [(IRI. (str pfx-vocab term)) nil]
@@ -286,16 +274,16 @@
                             incomplete-s
                             (get-hanging data))
         ; TODO: list-rels and list-props (for inlist with both o-l and o-r)
-        new-list-map (into {} (lazy-cat
+        new-list-map (into {} (concat
                                 (for [p list-ps] [p (if active-o [active-o] [])])
                                 (if (or subject o-resource)
                                   (for [p (incomplete :list-ps)]
                                     [p [next-parent-o]]))))
-        regular-triples (lazy-cat
+        regular-triples (concat
                           (if o-literal
                             (for [p props] [active-s p o-literal]))
                           (if o-resource
-                            (lazy-cat (for [p (if o-literal rels
+                            (concat (for [p (if o-literal rels
                                                 (concat props rels))]
                                         [active-s p o-resource])
                                       (for [p revs] [o-resource p active-s]))))
@@ -304,7 +292,7 @@
                        (for [t types] [ts rdf:type t]))
         completed-triples (if completing-s
                             (let [{rels :rels revs :revs} incomplete]
-                              (lazy-cat
+                              (concat
                                 (for [rel rels] [parent-o rel completing-s])
                                 (for [rev revs] [completing-s rev parent-o]))))
         vocab-triples (if (not-empty (data :vocab))
@@ -323,7 +311,7 @@
         env (if (not= parent-o next-parent-o)
               (assoc-in env [:incomplete :list-ps] {})
               env)]
-    [env data (lazy-cat type-triples
+    [env data (concat type-triples
                         completed-triples
                         regular-triples
                         vocab-triples) proc-triples]))
@@ -381,8 +369,8 @@
                             (empty? list-triples) combined-list-map
                             :else current-list-map))]
     {:env result-env
-     :triples (lazy-cat triples child-triples list-triples)
-     :proc-triples (lazy-cat proc-triples child-proc-triples)}))
+     :triples (concat triples child-triples list-triples)
+     :proc-triples (concat proc-triples child-proc-triples)}))
 
 (defn extract-rdfa [profile root location]
   (let [base-env (init-env location (profiles/get-host-env profile root))]
