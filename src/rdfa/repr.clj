@@ -18,3 +18,6 @@
 (defn repr-triple [[s p o]]
   (str (repr-term s) " " (repr-term p) " " (repr-term o) " ."))
 
+(defn repr-triples [triples]
+  (reduce str (map #(str (repr-triple %) "\n") triples)))
+
