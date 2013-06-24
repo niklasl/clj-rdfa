@@ -40,7 +40,11 @@
                 "sioc" "http://rdfs.org/sioc/ns#",
                 "v" "http://rdf.data-vocabulary.org/#",
                 "vcard" "http://www.w3.org/2006/vcard/ns#",
-                "schema" "http://schema.org/"}
+                "schema" "http://schema.org/"
+                "rr" "http://www.w3.org/ns/r2rml#"
+                "sd" "http://www.w3.org/ns/sparql-service-description#"
+                "prov" "http://www.w3.org/ns/prov#"
+                "dc11" "http://purl.org/dc/elements/1.1/"}
    :term-map {"describedby" "http://www.w3.org/2007/05/powder-s#describedby",
               "license" "http://www.w3.org/1999/xhtml/vocab#license",
               "role" "http://www.w3.org/1999/xhtml/vocab#role"}
