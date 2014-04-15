@@ -45,6 +45,9 @@
                 "sd" "http://www.w3.org/ns/sparql-service-description#"
                 "prov" "http://www.w3.org/ns/prov#"
                 "dc11" "http://purl.org/dc/elements/1.1/"}
+                "dcat" "http://www.w3.org/ns/dcat#",
+                "qb" "http://purl.org/linked-data/cube#",
+                "org" "http://www.w3.org/ns/org#",
    :term-map {"describedby" "http://www.w3.org/2007/05/powder-s#describedby",
               "license" "http://www.w3.org/1999/xhtml/vocab#license",
               "role" "http://www.w3.org/1999/xhtml/vocab#role"}
